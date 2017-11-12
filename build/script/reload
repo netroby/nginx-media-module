@@ -1,0 +1,7 @@
+#!/bin/sh
+
+curpath=`pwd`
+runpath=$(dirname $(pwd))
+
+#./nginx -s reload -p $runpath -c $runpath/conf/nginx.conf 
+./nginx -s reload

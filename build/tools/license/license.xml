@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<license version="1.0">
+    <hostlist>
+        <host mac="00:50:56:8C:31:22" />
+        <host mac="00:50:56:8C:31:22" />
+        <host mac="00:50:56:8C:31:22" />
+        <host mac="00:50:56:8C:31:22" />
+        <host mac="00:50:56:8C:31:22" />
+    </hostlist>
+	<ability rtmp="100" rtsp="100" hls="100" task="100" />
+    <hash>uNlONkcXxXlq5ALue+1g0QZEd3g=</hash>
+</license>

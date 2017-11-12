@@ -1,0 +1,941 @@
+#!/bin/bash
+#set -x
+set -o nounset
+ALLMEDIAVERSION="AllMedia 0.1.1"
+CURRENT_PATH=`pwd`
+cd ${CURRENT_PATH}/..
+export ALLMEDIA_ROOT=$PWD
+export PREFIX_ROOT=/home/allmedia/
+export THIRD_ROOT=${CURRENT_PATH}/3rd_party/
+export EXTEND_ROOT=${CURRENT_PATH}/extend/
+export PATCH_ROOT=${CURRENT_PATH}/patch/
+export SCRIPT_ROOT=${CURRENT_PATH}/script/
+echo "------------------------------------------------------------------------------"
+echo " ALLMEDIA_ROOT exported as ${ALLMEDIA_ROOT}"
+echo "------------------------------------------------------------------------------"
+
+WITHDEBUG="--with-debug"
+#WITHDEBUG=""
+#NGX_LINK="--add-dynamic-module"
+NGX_LINK="--add-module"
+#
+# Sets QUIT variable so script will finish.
+#
+quit()
+{
+    QUIT=$1
+}
+
+
+build_ffmpeg()
+{
+    module_pack="ffmpeg-3.2.1.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the ffmpeg package from server\n"
+        wget http://ffmpeg.org/releases/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd ffmpeg*
+    patch -p0 <${PATCH_ROOT}/ffmpeg_hlsen_c.patch
+    patch -p0 <${PATCH_ROOT}/ffmpeg_rtsp_c.patch
+    patch -p0 <${PATCH_ROOT}/ffmpeg_rtsp_h.patch
+    patch -p0 <${PATCH_ROOT}/ffmpeg_http_c.patch
+    sed -i 's/^#define LIBAVCODEC_IDENT*$/#define LIBAVCODEC_IDENT ${ALLMEDIAVERSION} /g' ./libavcodec/version.h 
+    sed -i 's/^#define LIBAVDEVICE_IDENT*$/#define LIBAVDEVICE_IDENT ${ALLMEDIAVERSION} /g' ./libavdevice/version.h
+    sed -i 's/^#define LIBAVFILTER_IDENT*$/#define LIBAVFILTER_IDENT ${ALLMEDIAVERSION} /g' ./libavfilter/version.h
+    sed -i 's/^#define LIBAVFORMAT_IDENT*$/#define LIBAVFORMAT_IDENT ${ALLMEDIAVERSION} /g' ./libavformat/version.h
+    sed -i 's/^#define LIBAVRESAMPLE_IDENT*$/#define LIBAVRESAMPLE_IDENT ${ALLMEDIAVERSION} /g' ./libavresample/version.h
+    sed -i 's/^#define LIBAVUTIL_IDENT*$/#define LIBAVUTIL_IDENT ${ALLMEDIAVERSION} /g' ./libavutil/version.h
+    sed -i 's/^#define LIBPOSTPROC_IDENT*$/#define LIBPOSTPROC_IDENT ${ALLMEDIAVERSION} /g' ./libpostproc/version.h
+    sed -i 's/^#define LIBSWRESAMPLE_IDENT*$/#define LIBSWRESAMPLE_IDENT ${ALLMEDIAVERSION} /g' ./libswresample/version.h
+    sed -i 's/^#define LIBSWSCALE_IDENT*$/#define LIBSWSCALE_IDENT ${ALLMEDIAVERSION} /g' ./libswscale/version.h
+
+    ./configure --prefix=${EXTEND_ROOT} \
+                --disable-ffplay        \
+                --disable-ffprobe       \
+                --disable-ffserver      \
+                --disable-yasm          \
+                --enable-shared         \
+                --enable-pic            \
+                --enable-libx264        \
+                --enable-gpl            \
+                --enable-pthreads       \
+                --enable-nonfree        \
+                --extra-cflags=-I${EXTEND_ROOT}/include --extra-ldflags=-L/${EXTEND_ROOT}/lib
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure ffmpeg fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build ffmpeg fail!\n"
+        return 1
+    fi
+    
+    #change the libavutil/time.h to libavutil/avtime.h
+    
+    mv ${EXTEND_ROOT}/include/libavutil/time.h ${EXTEND_ROOT}/include/libavutil/avtime.h
+    return 0
+}
+
+build_x264()
+{
+    module_pack="last_x264.tar.bz2"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the x264 package from server\n"
+        wget ftp://ftp.videolan.org/pub/x264/snapshots/${module_pack}
+    fi
+    tar -jxvf ${module_pack}
+    
+    cd x264*
+    ./configure --prefix=${EXTEND_ROOT} \
+                --disable-asm \
+                --enable-static \
+                --enable-pic \
+                --disable-opencl  \
+                --disable-avs \
+                --disable-cli \
+                --disable-ffms \
+                --disable-gpac  \
+                --disable-lavf  \
+                --disable-swscale 
+    if [ 0 -ne ${?} ]; then
+        echo "configure x264 fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build x264 fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_ffad()
+{
+    module_pack="faad2-2.7.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the faad2 package from server\n"
+        wget http://downloads.sourceforge.net/faac/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd faad2*
+    ./configure --prefix=${EXTEND_ROOT} 
+    if [ 0 -ne ${?} ]; then
+        echo "configure faad2 fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build faad2 fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_faac()
+{
+    module_pack="faac-1.28.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the faac-1 package from server\n"
+        wget http://downloads.sourceforge.net/faac/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd faac*
+    patch -p0 <${PATCH_ROOT}/faac.patch
+    ./configure --prefix=${EXTEND_ROOT} 
+    if [ 0 -ne ${?} ]; then
+        echo "configure faac fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build faac fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_lame()
+{
+    module_pack="lame-3.99.5.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the lame package from server\n"
+        wget https://sourceforge.net/projects/lame/files/lame/3.99/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd lame*
+    ./configure --prefix=${EXTEND_ROOT} 
+    if [ 0 -ne ${?} ]; then
+        echo "configure lame fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build lame fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+
+build_libxml2()
+{
+    module_pack="libxml2-sources-2.9.3.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the libxml2 package from server\n"
+        wget ftp://gd.tuwien.ac.at/pub/libxml/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd libxml2*
+    ./configure --prefix=${EXTEND_ROOT} --enable-shared=no --with-zlib=${EXTEND_ROOT} --with-iconv=${EXTEND_ROOT}
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure libxml2 fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build libxml2 fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_cjson()
+{
+    module_pack="cJSON-master.zip"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the libxml2 package from server\n"
+        wget https://github.com/DaveGamble/cJSON/archive/master.zip -O ${module_pack}
+    fi
+    unzip -o ${module_pack}
+    
+    cd cJSON*
+    
+    make PREFIX=${EXTEND_ROOT} && make install PREFIX=${EXTEND_ROOT}
+                
+    if [ 0 -ne ${?} ]; then
+        echo "build cjson fail!\n"
+        return 1
+    fi
+    cp -f libcjson.a ${EXTEND_ROOT}/lib/
+    
+    return 0
+}
+
+build_pcre()
+{
+    module_pack="pcre-8.39.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the pcre package from server\n"
+        wget https://sourceforge.net/projects/pcre/files/pcre/8.39/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd pcre*
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure pcre fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build pcre fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_zlib()
+{
+    module_pack="zlib-1.2.8.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the zlib package from server\n"
+        wget http://zlib.net/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd zlib*
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure zlib fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build zlib fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_libiconv()
+{
+    module_pack="libiconv-1.14.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the libiconv package from server\n"
+        wget http://ftp.gnu.org/pub/gnu/libiconv/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd libiconv*
+    patch -p0 <${PATCH_ROOT}/libiconv.patch
+    ./configure --prefix=${EXTEND_ROOT} --enable-static=yes
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure libiconv fail!\n"
+        return 1
+    fi
+    
+    make clean  
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build libiconv fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_xzutils()
+{
+    module_pack="xz-5.2.2.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the xzutils package from server\n"
+        wget http://tukaani.org/xz/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd xz*
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure xzutils fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build xzutils fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_bzip2()
+{
+    module_pack="bzip2-1.0.6.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the bzip2 package from server\n"
+        wget http://www.bzip.org/1.0.6/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd bzip2*
+    #./configure --prefix=${EXTEND_ROOT}
+    EXTEND_ROOT_SED=$(echo ${EXTEND_ROOT} |sed -e 's/\//\\\//g')
+    sed -i "s/PREFIX\=\/usr\/local/PREFIX\=${EXTEND_ROOT_SED}/" Makefile    
+    sed -i "s/CFLAGS=-Wall -Winline -O2 -g/CFLAGS\=-Wall -Winline -O2 -fPIC -g/" Makefile
+    if [ 0 -ne ${?} ]; then
+        echo "sed bzip2 fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build bzip2 fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+
+build_openssl()
+{
+    module_pack="openssl-0.9.8w.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the openssl package from server\n"
+        wget https://www.openssl.org/source/old/0.9.x/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd openssl*
+                    
+    if [ 0 -ne ${?} ]; then
+        echo "get openssl fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_zookeeper()
+{
+    module_pack="zookeeper-3.4.9.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the zookeeper package from server\n"
+        wget https://mirrors.tuna.tsinghua.edu.cn/apache/zookeeper/zookeeper-3.4.9/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd zookeeper*
+    cd src/c
+    
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure zookeepr fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build zookeepr fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+
+
+build_curl_module()
+{
+    module_pack="curl-7.52.1.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the curl package from server\n"
+        wget https://curl.haxx.se/download/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd curl*
+    
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure curl fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build curl fail!\n"
+        return 1
+    fi
+    
+    return 
+}
+
+build_minixml_module()
+{
+    module_pack="mxml-2.10.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the minixml package from server\n"
+        wget http://www.msweet.org/files/project3/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd mxml*
+    
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure minixml fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build minixml fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_apr_util_module()
+{
+    module_pack="apr-util-1.5.4.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the apr-util package from server\n"
+        wget http://mirrors.cnnic.cn/apache//apr/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd apr-util*
+    
+    ./configure --prefix=${EXTEND_ROOT} --with-apr=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure apr-util fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build apr-util fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_apr_module()
+{
+    module_pack="apr-1.5.2.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the apr package from server\n"
+        wget http://mirrors.cnnic.cn/apache//apr/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd apr-1*
+    
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure apr fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build apr fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_oss_sdk_module()
+{
+    module_pack="aliyun-oss-c-sdk-3.3.0.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the aliyun-oss-c-sdk package from server\n"
+        wget https://github.com/aliyun/aliyun-oss-c-sdk/archive/3.3.0.tar.gz -O ${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd aliyun-oss-c-sdk*
+    
+    ##./configure --prefix=${EXTEND_ROOT} 
+    cmake -f CMakeLists.txt -DCMAKE_BUILD_TYPE=Release -DCURL_INCLUDE_DIR=${EXTEND_ROOT}/include/curl/ -DCURL_LIBRARY=${EXTEND_ROOT}/lib/libcurl.so -DAPR_INCLUDE_DIR=${EXTEND_ROOT}/include/apr-1/ -DAPR_LIBRARY=${EXTEND_ROOT}/lib/libapr-1.so -DAPR_UTIL_INCLUDE_DIR=${EXTEND_ROOT}/include/apr-1 -DAPR_UTIL_LIBRARY=${EXTEND_ROOT}/lib/libaprutil-1.so -DMINIXML_INCLUDE_DIR=${EXTEND_ROOT}/include -DMINIXML_LIBRARY=${EXTEND_ROOT}/lib/libmxml.so -DCMAKE_INSTALL_PREFIX=${EXTEND_ROOT}
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure aliyun-oss-c-sdk fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build aliyun-oss-c-sdk fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
+
+build_extend_modules()
+{
+    build_bzip2
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_zlib
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_pcre
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_libiconv
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_libxml2
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_cjson
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_lame
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_faac
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_ffad
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_x264
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_xzutils
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_ffmpeg
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_openssl
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_zookeeper
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_minixml_module
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_curl_module
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_apr_module
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    ##apr util must build after apr
+    build_apr_util_module
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_oss_sdk_module
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    return 0
+}
+
+build_mk_module()
+{   
+    module_pack="libMediakenerl-master.zip"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the libxml2 package from server\n"
+        wget https://github.com/M-kernel/libMediakenerl/archive/master.zip -O ${module_pack}
+    fi
+    unzip -o ${module_pack}
+    
+    cd libMediakenerl*
+    cd build
+    make -f Makefile prefix=${EXTEND_ROOT} with-ffmpeg=${EXTEND_ROOT}
+    if [ 0 -ne ${?} ]; then
+        echo "build the media kernel module fail!\n"
+        return 1
+    fi
+    
+    make install -f Makefile prefix=${EXTEND_ROOT} with-ffmpeg=${EXTEND_ROOT}
+    if [ 0 -ne ${?} ]; then
+        echo "install the media kernel module fail!\n"
+        return 1
+    fi
+
+    return 0
+}
+
+build_engine_module()
+{
+    cd ${THIRD_ROOT}/nginx-*
+    
+    make&&make install
+    
+    if [ 0 -ne ${?} ]; then
+       echo "make the nginx fail!\n"
+       return 1
+    fi
+    echo "make the nginx success!\n"
+    return 0
+}
+
+rebuild_engine_module()
+{
+
+    ###wget the nginx
+    cd ${THIRD_ROOT}
+    module_pack="nginx-1.10.2.tar.gz"
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the nginx package from server\n"
+        if [ ! -x "`which wget 2>/dev/null`" ]; then
+            echo "Need to install wget."
+            return 1
+        fi
+        wget http://nginx.org/download/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    
+    basic_opt=" --prefix=${PREFIX_ROOT} ${WITHDEBUG} 
+                --with-threads 
+                --with-file-aio 
+                --with-ipv6
+                --with-http_ssl_module 
+                --with-http_realip_module 
+                --with-http_addition_module 
+                --with-http_sub_module 
+                --with-http_dav_module 
+                --with-http_flv_module 
+                --with-http_mp4_module 
+                --with-http_gunzip_module 
+                --with-http_gzip_static_module 
+                --with-http_random_index_module 
+                --with-http_secure_link_module 
+                --with-http_stub_status_module 
+                --with-http_auth_request_module 
+                --with-mail 
+                --with-mail_ssl_module 
+                --with-cc-opt=-O3 "
+                
+    
+    third_opt=""
+    cd ${THIRD_ROOT}/pcre*
+    if [ 0 -eq ${?} ]; then
+        third_opt="${third_opt} 
+                    --with-pcre=`pwd`"
+    fi
+    cd ${THIRD_ROOT}/zlib*
+    if [ 0 -eq ${?} ]; then
+        third_opt="${third_opt}
+                    --with-zlib=`pwd`"
+    fi
+    cd ${THIRD_ROOT}/openssl*
+    if [ 0 -eq ${?} ]; then
+        third_opt="${third_opt} 
+                    --with-openssl=`pwd`"
+    fi
+
+    
+    module_opt="" 
+    cd ${ALLMEDIA_ROOT}
+    if [ 0 -eq ${?} ]; then
+        module_opt="${module_opt} 
+                     --add-module=`pwd`"
+        LD_LIBRARY_PATH=${EXTEND_ROOT}/lib
+        LIBRARY_PATH=${EXTEND_ROOT}/lib
+        C_INCLUDE_PATH=${EXTEND_ROOT}/include
+        export LD_LIBRARY_PATH LIBRARY_PATH C_INCLUDE_PATH
+    fi
+        
+    all_opt="${basic_opt} ${third_opt} ${module_opt}"
+    
+    echo "all optiont info:\n ${all_opt}"
+    
+    cd ${THIRD_ROOT}/nginx-1.*
+    ./configure ${all_opt} 
+
+    if [ 0 -ne ${?} ]; then
+       echo "configure the nginx fail!\n"
+       return 1
+    fi
+    
+    make&&make install
+    
+    if [ 0 -ne ${?} ]; then
+       echo "make the nginx fail!\n"
+       return 1
+    fi
+    cp ${SCRIPT_ROOT}/run ${PREFIX_ROOT}/sbin
+    chmod +x ${PREFIX_ROOT}/sbin/run
+    cp ${SCRIPT_ROOT}/nginx.conf ${PREFIX_ROOT}/conf
+    echo "make the nginx success!\n"
+    cd ${ALLMEDIA_ROOT}
+    return 0
+}
+
+clean_all()
+{
+    cd ${PREFIX_ROOT}/
+    if [ 0 -eq ${?} ]; then
+       rm -rf ./*
+    fi
+    
+    cd ${THIRD_ROOT}/
+    if [ 0 -eq ${?} ]; then
+       rm -rf ./*
+    fi
+    cd ${EXTEND_ROOT}/
+    if [ 0 -eq ${?} ]; then
+       rm -rf ./*
+    fi
+    echo "clean all success!\n"
+}
+
+package_all()
+{
+    cp ${SCRIPT_ROOT}/run ${PREFIX_ROOT}/sbin
+    cp ${SCRIPT_ROOT}/nginx.conf ${PREFIX_ROOT}/conf
+    mkdir ${PREFIX_ROOT}/html/
+    cp -R ${SCRIPT_ROOT}/html/* ${PREFIX_ROOT}/html/
+    
+    cd ${CURRENT_PATH}
+    tar -zcvf allmedia.tar.gz allmedia/
+    echo "package all success!\n"
+}
+setup()
+{
+        
+    build_extend_modules
+    if [ 0 -ne ${?} ]; then
+        return
+    fi 
+    build_mk_module
+    if [ 0 -ne ${?} ]; then
+        return
+    fi
+    rebuild_engine_module
+    if [ 0 -ne ${?} ]; then
+        return
+    fi
+    echo "make the all modules success!\n"
+    cd ${ALLMEDIA_ROOT}
+}
+
+all_engine_func()
+{
+        TITLE="Setup the engine module"
+
+        TEXT[1]="rebuild the engine module"
+        FUNC[1]="rebuild_engine_module"
+        
+        TEXT[2]="build the engine module"
+        FUNC[2]="build_engine_module"
+}
+
+all_modules_func()
+{
+        TITLE="Setup all the 3rd module"
+
+        TEXT[1]="build the 3rd module"
+        FUNC[1]="build_extend_modules"
+        
+        TEXT[2]="build the media kenerl module"
+        FUNC[2]="build_mk_module"
+        
+}
+
+all_func()
+{
+        TITLE="build module  "
+
+        TEXT[1]="build  module"
+        FUNC[1]="setup"
+            
+        TEXT[2]="package module"
+        FUNC[2]="package_all"
+        
+        TEXT[3]="clean module"
+        FUNC[3]="clean_all"
+}
+STEPS[1]="all_func"
+STEPS[2]="all_modules_func"
+STEPS[3]="all_engine_func"
+
+QUIT=0
+
+while [ "$QUIT" == "0" ]; do
+    OPTION_NUM=1
+    if [ ! -x "`which wget 2>/dev/null`" ]; then
+        echo "Need to install wget."
+        break 
+    fi
+    for s in $(seq ${#STEPS[@]}) ; do
+        ${STEPS[s]}
+
+        echo "----------------------------------------------------------"
+        echo " Step $s: ${TITLE}"
+        echo "----------------------------------------------------------"
+
+        for i in $(seq ${#TEXT[@]}) ; do
+            echo "[$OPTION_NUM] ${TEXT[i]}"
+            OPTIONS[$OPTION_NUM]=${FUNC[i]}
+            let "OPTION_NUM+=1"
+        done
+
+        # Clear TEXT and FUNC arrays before next step
+        unset TEXT
+        unset FUNC
+
+        echo ""
+    done
+
+    echo "[$OPTION_NUM] Exit Script"
+    OPTIONS[$OPTION_NUM]="quit"
+    echo ""
+    echo -n "Option: "
+    read our_entry
+    echo ""
+    ${OPTIONS[our_entry]} ${our_entry}
+    echo
+done
