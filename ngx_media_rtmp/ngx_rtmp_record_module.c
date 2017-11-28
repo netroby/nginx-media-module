@@ -39,9 +39,18 @@ static ngx_int_t ngx_rtmp_record_node_open(ngx_rtmp_session_t *s,
        ngx_rtmp_record_rec_ctx_t *rctx);
 static ngx_int_t ngx_rtmp_record_node_close(ngx_rtmp_session_t *s,
        ngx_rtmp_record_rec_ctx_t *rctx);
+static ngx_int_t ngx_rtmp_record_ff_av(ngx_rtmp_session_t *s, ngx_rtmp_record_rec_ctx_t *rctx,
+                        ngx_rtmp_header_t *h, ngx_chain_t *in);
+static ngx_int_t ngx_rtmp_record_ff_open(ngx_rtmp_session_t *s,ngx_rtmp_record_rec_ctx_t *rctx);
+static ngx_int_t ngx_rtmp_record_ff_close(ngx_rtmp_session_t *s,ngx_rtmp_record_rec_ctx_t *rctx);
+
 static void  ngx_rtmp_record_make_path(ngx_rtmp_session_t *s,
        ngx_rtmp_record_rec_ctx_t *rctx, ngx_str_t *path);
 static ngx_int_t ngx_rtmp_record_init(ngx_rtmp_session_t *s);
+static ngx_int_t ngx_rtmp_record_init_process(ngx_cycle_t *cycle);
+static void      ngx_rtmp_record_exit_process(ngx_cycle_t *cycle);
+
+
 
 
 static ngx_conf_bitmask_t  ngx_rtmp_record_mask[] = {
@@ -52,6 +61,9 @@ static ngx_conf_bitmask_t  ngx_rtmp_record_mask[] = {
     { ngx_string("video"),              NGX_RTMP_RECORD_VIDEO       },
     { ngx_string("keyframes"),          NGX_RTMP_RECORD_KEYFRAMES   },
     { ngx_string("manual"),             NGX_RTMP_RECORD_MANUAL      },
+    { ngx_string("allrecord"),          NGX_RTMP_RECORD_AUDIO       |
+                                        NGX_RTMP_RECORD_VIDEO       |
+                                        NGX_RTMP_RECORD_FFMPEG      },
     { ngx_null_string,                  0                           }
 };
 
@@ -145,7 +157,6 @@ static ngx_command_t  ngx_rtmp_record_commands[] = {
       0,
       NULL },
 
-
       ngx_null_command
 };
 
@@ -169,10 +180,10 @@ ngx_module_t  ngx_rtmp_record_module = {
     NGX_RTMP_MODULE,                        /* module type */
     NULL,                                   /* init master */
     NULL,                                   /* init module */
-    NULL,                                   /* init process */
+    ngx_rtmp_record_init_process,           /* init process */
     NULL,                                   /* init thread */
     NULL,                                   /* exit thread */
-    NULL,                                   /* exit process */
+    ngx_rtmp_record_exit_process,           /* exit process */
     NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
 };
@@ -301,7 +312,12 @@ ngx_rtmp_record_open(ngx_rtmp_session_t *s, ngx_uint_t n, ngx_str_t *path)
         return NGX_ERROR;
     }
 
-    rc = ngx_rtmp_record_node_open(s, rctx);
+    if((rctx->conf->flags & NGX_RTMP_RECORD_FFMPEG)) {
+        rc = ngx_rtmp_record_ff_open(s, rctx);
+    }
+    else {
+        rc = ngx_rtmp_record_node_open(s, rctx);
+    }
     if (rc != NGX_OK) {
         return rc;
     }
@@ -328,8 +344,12 @@ ngx_rtmp_record_close(ngx_rtmp_session_t *s, ngx_uint_t n, ngx_str_t *path)
     if (rctx == NULL) {
         return NGX_ERROR;
     }
-
-    rc = ngx_rtmp_record_node_close(s, rctx);
+    if((rctx->conf->flags & NGX_RTMP_RECORD_FFMPEG)) {
+        rc = ngx_rtmp_record_ff_close(s, rctx);
+    }
+    else {
+        rc = ngx_rtmp_record_node_close(s, rctx);
+    }
     if (rc != NGX_OK) {
         return rc;
     }
@@ -634,6 +654,9 @@ ngx_rtmp_record_init(ngx_rtmp_session_t *s)
 
         rctx->conf = *rracf;
         rctx->file.fd = NGX_INVALID_FILE;
+
+        /* init the ffmpeg context */
+        rctx->ffctx = NULL;
     }
 
     return NGX_OK;
@@ -666,7 +689,12 @@ ngx_rtmp_record_start(ngx_rtmp_session_t *s)
         if (rctx->conf->flags & (NGX_RTMP_RECORD_OFF|NGX_RTMP_RECORD_MANUAL)) {
             continue;
         }
-        ngx_rtmp_record_node_open(s, rctx);
+        if((racf->flags & NGX_RTMP_RECORD_FFMPEG)) {
+            ngx_rtmp_record_ff_open(s, rctx);
+        }
+        else {
+            ngx_rtmp_record_node_open(s, rctx);
+        }
     }
 }
 
@@ -694,7 +722,12 @@ ngx_rtmp_record_stop(ngx_rtmp_session_t *s)
 
     rctx = ctx->rec.elts;
     for (n = 0; n < ctx->rec.nelts; ++n, ++rctx) {
-        ngx_rtmp_record_node_close(s, rctx);
+        if((rctx->conf->flags & NGX_RTMP_RECORD_FFMPEG)) {
+            ngx_rtmp_record_ff_close(s, rctx);
+        }
+        else {
+            ngx_rtmp_record_node_close(s, rctx);
+        }
     }
 }
 
@@ -972,7 +1005,12 @@ ngx_rtmp_record_write_frame(ngx_rtmp_session_t *s,
     if ((rracf->max_size && rctx->file.offset >= (ngx_int_t) rracf->max_size) ||
         (rracf->max_frames && rctx->nframes >= rracf->max_frames))
     {
-        ngx_rtmp_record_node_close(s, rctx);
+        if((rctx->conf->flags & NGX_RTMP_RECORD_FFMPEG)) {
+            ngx_rtmp_record_ff_close(s, rctx);
+        }
+        else {
+            ngx_rtmp_record_node_close(s, rctx);
+        }
     }
 
     return NGX_OK;
@@ -1009,7 +1047,12 @@ ngx_rtmp_record_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     rctx = ctx->rec.elts;
 
     for (n = 0; n < ctx->rec.nelts; ++n, ++rctx) {
-        ngx_rtmp_record_node_av(s, rctx, h, in);
+        if(!(rctx->conf->flags & NGX_RTMP_RECORD_FFMPEG)) {
+            ngx_rtmp_record_ff_av(s, rctx, h, in);
+        }
+        else {
+            ngx_rtmp_record_node_av(s, rctx, h, in);
+        }
     }
 
     return NGX_OK;
@@ -1069,9 +1112,6 @@ ngx_rtmp_record_node_av(ngx_rtmp_session_t *s, ngx_rtmp_record_rec_ctx_t *rctx,
         return NGX_OK;
     }
 
-    if (rctx->file.fd == NGX_INVALID_FILE) {
-        return NGX_OK;
-    }
 
     if (h->type == NGX_RTMP_MSG_AUDIO &&
        (rracf->flags & NGX_RTMP_RECORD_AUDIO) == 0)
@@ -1274,16 +1314,864 @@ ngx_rtmp_record_recorder(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return rv;
 }
 
+/************************************record by the ffmpeg ***********************************/
+
+static ngx_int_t
+ngx_rtmp_record_init_process(ngx_cycle_t *cycle)
+{
+    /* init the ffmpeg */
+    av_register_all();
+    return NGX_OK;
+}
+
+
+static void
+ngx_rtmp_record_exit_process(ngx_cycle_t *cycle)
+{
+    return;
+}
+
+
+
+static ngx_int_t
+ngx_rtmp_record_ff_copy(ngx_rtmp_session_t *s, void *dst, u_char **src, size_t n,
+    ngx_chain_t **in)
+{
+    u_char  *last;
+    size_t   pn;
+
+    if (*in == NULL) {
+        return NGX_ERROR;
+    }
+
+    for ( ;; ) {
+        last = (*in)->buf->last;
+
+        if ((size_t)(last - *src) >= n) {
+            if (dst) {
+                ngx_memcpy(dst, *src, n);
+            }
+
+            *src += n;
+
+            while (*in && *src == (*in)->buf->last) {
+                *in = (*in)->next;
+                if (*in) {
+                    *src = (*in)->buf->pos;
+                }
+            }
+
+            return NGX_OK;
+        }
+
+        pn = last - *src;
+
+        if (dst) {
+            ngx_memcpy(dst, *src, pn);
+            dst = (u_char *)dst + pn;
+        }
+
+        n -= pn;
+        *in = (*in)->next;
+
+        if (*in == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "hls: failed to read %uz byte(s)", n);
+            return NGX_ERROR;
+        }
+
+        *src = (*in)->buf->pos;
+    }
+}
+
+
+/* Add an output stream. */
+static ngx_int_t
+ngx_rtmp_record_ff_add_stream(ngx_rtmp_session_t *s,ngx_rtmp_record_ff_stream_t *ost,
+                         AVFormatContext *oc,AVCodec **codec,enum AVCodecID codec_id)
+{
+    AVCodecContext *c;
+    int i;
+    ngx_rtmp_codec_ctx_t           *codec_ctx;
+
+    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+
+    if (codec_ctx == NULL || codec_ctx->avc_header == NULL)
+    {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0, "the session codex ctx error.");
+        return NGX_ERROR;
+    }
+    /* find the encoder */
+    *codec = avcodec_find_encoder(codec_id);
+    if (!(*codec)) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                     "Could not find encoder for '%s'",avcodec_get_name(codec_id));
+        return NGX_ERROR;
+    }
+    ost->st = avformat_new_stream(oc, NULL);
+    if (!ost->st) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                              "Could not allocate stream.");
+        return NGX_ERROR;
+    }
+    ost->st->id = oc->nb_streams-1;
+    c = avcodec_alloc_context3(*codec);
+    if (!c) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                              "Could not alloc an encoding context.");
+        return NGX_ERROR;
+    }
+    ost->enc = c;
+    switch ((*codec)->type) {
+    case AVMEDIA_TYPE_AUDIO:
+        c->sample_fmt  = (*codec)->sample_fmts ?
+            (*codec)->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+        c->bit_rate    = codec_ctx->audio_data_rate;
+        c->sample_rate = codec_ctx->sample_rate;
+        if ((*codec)->supported_samplerates) {
+            c->sample_rate = (*codec)->supported_samplerates[0];
+            for (i = 0; (*codec)->supported_samplerates[i]; i++) {
+                if ((*codec)->supported_samplerates[i] == 44100)
+                    c->sample_rate = 44100;
+            }
+        }
+        c->channels        = av_get_channel_layout_nb_channels(c->channel_layout);
+        c->channel_layout = AV_CH_LAYOUT_STEREO;
+        if ((*codec)->channel_layouts) {
+            c->channel_layout = (*codec)->channel_layouts[0];
+            for (i = 0; (*codec)->channel_layouts[i]; i++) {
+                if ((*codec)->channel_layouts[i] == AV_CH_LAYOUT_STEREO)
+                    c->channel_layout = AV_CH_LAYOUT_STEREO;
+            }
+        }
+        c->channels        = av_get_channel_layout_nb_channels(c->channel_layout);
+        ost->st->time_base = (AVRational){ 1, c->sample_rate };
+        break;
+    case AVMEDIA_TYPE_VIDEO:
+        c->codec_id = codec_id;
+        c->bit_rate = codec_ctx->video_data_rate;
+        /* Resolution must be a multiple of two. */
+        c->width    = codec_ctx->width;
+        c->height   = codec_ctx->height;
+        /* timebase: This is the fundamental unit of time (in seconds) in terms
+         * of which frame timestamps are represented. For fixed-fps content,
+         * timebase should be 1/framerate and timestamp increments should be
+         * identical to 1. */
+        ost->st->time_base = (AVRational){ 1, codec_ctx->frame_rate};
+        c->time_base       = ost->st->time_base;
+        c->gop_size      = 12; /* emit one intra frame every twelve frames at most */
+        c->pix_fmt       = AV_PIX_FMT_YUV420P;
+        if (c->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+            /* just for testing, we also add B-frames */
+            c->max_b_frames = 2;
+        }
+        if (c->codec_id == AV_CODEC_ID_MPEG1VIDEO) {
+            /* Needed to avoid using macroblocks in which some coeffs overflow.
+             * This does not happen with normal video, it just happens here as
+             * the motion of the chroma plane does not match the luma plane. */
+            c->mb_decision = 2;
+        }
+    break;
+    default:
+        break;
+    }
+    /* Some formats want stream headers to be separate. */
+    if (oc->oformat->flags & AVFMT_GLOBALHEADER)
+        c->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+    return NGX_OK;
+}
+/**************************************************************/
+/* audio output */
+static ngx_int_t
+ngx_rtmp_record_ff_open_audio(ngx_rtmp_session_t *s,AVFormatContext *oc, AVCodec *codec,
+                              ngx_rtmp_record_ff_stream_t *ost, AVDictionary *opt_arg)
+{
+    AVCodecContext *c;
+    int nb_samples;
+    int ret;
+    AVDictionary *opt = NULL;
+    c = ost->enc;
+    /* open it */
+    av_dict_copy(&opt, opt_arg, 0);
+    ret = avcodec_open2(c, codec, &opt);
+    av_dict_free(&opt);
+    if (ret < 0) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                        "Could not open audio codec: %s.", av_err2str(ret));
+        return NGX_ERROR;
+    }
+    if (c->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
+        nb_samples = 10000;
+    else
+        nb_samples = c->frame_size;
+
+    /* copy the stream parameters to the muxer */
+    ret = avcodec_parameters_from_context(ost->st->codecpar, c);
+    if (ret < 0) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                           "Could not copy the stream parameters.");
+        return NGX_ERROR;
+    }
+    return NGX_OK;
+}
+
+/**************************************************************/
+/* video output */
+static ngx_int_t
+ngx_rtmp_record_ff_open_video(ngx_rtmp_session_t *s,AVFormatContext *oc, AVCodec *codec,
+                              ngx_rtmp_record_ff_stream_t *ost, AVDictionary *opt_arg)
+{
+    int ret;
+    AVCodecContext *c = ost->enc;
+    AVDictionary *opt = NULL;
+    av_dict_copy(&opt, opt_arg, 0);
+    /* open the codec */
+    ret = avcodec_open2(c, codec, &opt);
+    av_dict_free(&opt);
+    if (ret < 0) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                        "Could not open video codec: %s.", av_err2str(ret));
+        return NGX_ERROR;
+    }
+
+    /* copy the stream parameters to the muxer */
+    ret = avcodec_parameters_from_context(ost->st->codecpar, c);
+    if (ret < 0) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                        "Could not copy the stream parameters.");
+        return NGX_ERROR;
+    }
+    return NGX_OK;
+}
+
+
+static void
+ngx_rtmp_record_ff_close_stream(AVFormatContext *oc, ngx_rtmp_record_ff_stream_t *ost)
+{
+    avcodec_free_context(&ost->enc);
+}
+
+#ifdef NGX_DEBUG
+static void
+ngx_rtmp_record_ff_log_packet(ngx_rtmp_session_t *s,
+                              const AVFormatContext *fmt_ctx, const AVPacket *pkt)
+{
+    AVRational *time_base = &fmt_ctx->streams[pkt->stream_index]->time_base;
+    ngx_log_debug7(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+        "pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d\n",
+           av_ts2str(pkt->pts), av_ts2timestr(pkt->pts, time_base),
+           av_ts2str(pkt->dts), av_ts2timestr(pkt->dts, time_base),
+           av_ts2str(pkt->duration), av_ts2timestr(pkt->duration, time_base),
+           pkt->stream_index);
+}
+#endif
+
+/*
+ * encode one audio frame and send it to the muxer
+ * return 1 when encoding is finished, 0 otherwise
+ */
+static ngx_int_t
+ngx_rtmp_record_ff_write_frame(ngx_rtmp_session_t *s,
+                            ngx_rtmp_record_rec_ctx_t *rctx,
+                            AVPacket *pkt)
+{
+    /* Write the compressed frame to the media file. */
+#ifdef NGX_DEBUG
+    ngx_rtmp_record_ff_log_packet(s,rctx->ffctx->oc, pkt);
+#endif
+    return av_interleaved_write_frame(rctx->ffctx->oc, pkt);
+}
+static ngx_int_t
+ngx_rtmp_record_ff_write_audio_frame(ngx_rtmp_session_t *s,
+                            ngx_rtmp_record_rec_ctx_t *rctx,
+                            ngx_rtmp_header_t *h, ngx_chain_t *in,
+                            ngx_int_t inc_nframes)
+{
+    AVCodecContext *c;
+    AVPacket pkt; // data and size must be 0;
+    AVStream* st = NULL;
+    ngx_buf_t                      *b;
+
+    ngx_rtmp_codec_ctx_t           *codec_ctx;
+    uint64_t                        pts;
+    size_t                          bsize;
+
+    u_char                         *p;
+    ngx_uint_t                      size;
+
+    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+
+    if (codec_ctx == NULL  || h->mlen < 2)
+    {
+        return NGX_OK;
+    }
+
+    if (codec_ctx->audio_codec_id != NGX_RTMP_AUDIO_AAC ||
+        codec_ctx->aac_header == NULL || ngx_rtmp_is_codec_header(in))
+    {
+        return NGX_OK;
+    }
+
+    b = rctx->ffctx->frame_buf;
+    b->pos = b->start;
+    b->last = b->start;
+
+
+    size = h->mlen - 2 + 7;
+    pts = (uint64_t) h->timestamp * 90;
+
+    if (b->start + size > b->end) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "hls: too big audio frame");
+        return NGX_OK;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "hls: audio pts=%uL", pts);
+
+    if (b->last + 7 > b->end) {
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "hls: not enough buffer for audio header");
+        return NGX_OK;
+    }
+
+    p = b->last;
+    b->last += 5;
+
+    /* copy payload */
+
+    for (; in && b->last < b->end; in = in->next) {
+
+        bsize = in->buf->last - in->buf->pos;
+        if (b->last + bsize > b->end) {
+            bsize = b->end - b->last;
+        }
+
+        b->last = ngx_cpymem(b->last, in->buf->pos, bsize);
+    }
+
+    /* todo write to the file */
+    av_init_packet(&pkt);
+
+    c = rctx->ffctx->audio_stream.enc;
+    st = rctx->ffctx->audio_stream.st;
+
+    pkt.size = b->last - b->pos;
+    pkt.data = b->pos;
+    pkt.dts = pts;
+    pkt.pts = pts;
+
+    /* rescale output packet timestamp values from codec to stream timebase */
+    av_packet_rescale_ts(&pkt, c->time_base,st->time_base);
+    pkt.stream_index = st->index;
+
+    /* Write the compressed frame to the media file. */
+    return ngx_rtmp_record_ff_write_frame(s,rctx,&pkt);
+}
+static ngx_int_t
+ngx_rtmp_record_ff_write_video_frame(ngx_rtmp_session_t *s,
+                            ngx_rtmp_record_rec_ctx_t *rctx,
+                            ngx_rtmp_header_t *h, ngx_chain_t *in,
+                            ngx_int_t inc_nframes)
+{
+    AVCodecContext *c;
+    AVPacket pkt; // data and size must be 0;
+    AVStream* st = NULL;
+    ngx_buf_t                      *out;
+
+    ngx_rtmp_codec_ctx_t           *codec_ctx;
+    u_char                         *p;
+    uint8_t                         fmt, ftype, htype, nal_type, src_nal_type;
+    uint32_t                        len, rlen;
+
+    uint32_t                        cts;
+    ngx_uint_t                      nal_bytes;
+    ngx_int_t                       aud_sent, sps_pps_sent;
+
+    out = rctx->ffctx->frame_buf;
+    out->pos = out->start;
+    out->last = out->start;
+
+    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+
+    if (codec_ctx == NULL || codec_ctx->avc_header == NULL || h->mlen < 1)
+    {
+        return NGX_OK;
+    }
+
+    /* Only H264 is supported */
+    if (codec_ctx->video_codec_id != NGX_RTMP_VIDEO_H264) {
+        return NGX_OK;
+    }
+
+    p = in->buf->pos;
+    if (ngx_rtmp_record_ff_copy(s, &fmt, &p, 1, &in) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    /* 1: keyframe (IDR)
+     * 2: inter frame
+     * 3: disposable inter frame */
+
+    ftype = (fmt & 0xf0) >> 4;
+
+    /* H264 HDR/PICT */
+
+    if (ngx_rtmp_record_ff_copy(s, &htype, &p, 1, &in) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    /* proceed only with PICT */
+
+    if (htype != 1) {
+        return NGX_OK;
+    }
+
+    /* 3 bytes: decoder delay */
+
+    if (ngx_rtmp_record_ff_copy(s, &cts, &p, 3, &in) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    cts = ((cts & 0x00FF0000) >> 16) | ((cts & 0x000000FF) << 16) |
+          (cts & 0x0000FF00);
+
+
+    nal_bytes = codec_ctx->avc_nal_bytes;
+    aud_sent = 0;
+    sps_pps_sent = 0;
+
+    while (in) {
+        if (ngx_rtmp_record_ff_copy(s, &rlen, &p, nal_bytes, &in) != NGX_OK) {
+            return NGX_OK;
+        }
+
+        len = 0;
+        ngx_rtmp_rmemcpy(&len, &rlen, nal_bytes);
+
+        if (len == 0) {
+            continue;
+        }
+
+        if (ngx_rtmp_record_ff_copy(s, &src_nal_type, &p, 1, &in) != NGX_OK) {
+            return NGX_OK;
+        }
+
+        nal_type = src_nal_type & 0x1f;
+
+        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "hls: h264 NAL type=%ui, len=%uD",
+                       (ngx_uint_t) nal_type, len);
+
+        if (nal_type >= 7 && nal_type <= 9) {
+            if (ngx_rtmp_record_ff_copy(s, NULL, &p, len - 1, &in) != NGX_OK) {
+                return NGX_ERROR;
+            }
+            continue;
+        }
+
+
+
+        /* AnnexB prefix */
+
+        if (out->end - out->last < 5) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "rtmp ff record: not enough buffer for AnnexB prefix");
+            return NGX_OK;
+        }
+
+        /* first AnnexB prefix is long (4 bytes) */
+
+        if (out->last == out->pos) {
+            *out->last++ = 0;
+        }
+
+        *out->last++ = 0;
+        *out->last++ = 0;
+        *out->last++ = 1;
+        *out->last++ = src_nal_type;
+
+        /* NAL body */
+
+        if (out->end - out->last < (ngx_int_t) len) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "hls: not enough buffer for NAL");
+            return NGX_OK;
+        }
+
+        if (ngx_rtmp_record_ff_copy(s, out->last, &p, len - 1, &in) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        out->last += (len - 1);
+    }
+
+    /* to write */
+    av_init_packet(&pkt);
+    c = rctx->ffctx->video_stream.enc;
+    st = rctx->ffctx->video_stream.st;
+
+
+    if(1 == ftype) {
+        pkt.flags |= AV_PKT_FLAG_KEY;
+    }
+
+    pkt.size = out->last - out->pos;
+    pkt.data = out->pos;
+    pkt.dts = (uint64_t) h->timestamp * 90;
+    pkt.pts = pkt.dts + cts * 90;
+
+    /* rescale output packet timestamp values from codec to stream timebase */
+    av_packet_rescale_ts(&pkt, c->time_base,st->time_base);
+    pkt.stream_index = st->index;
+
+    /* Write the compressed frame to the media file. */
+    return ngx_rtmp_record_ff_write_frame(s,rctx,&pkt);
+}
+
+static ngx_int_t
+ngx_rtmp_record_ff_av(ngx_rtmp_session_t *s, ngx_rtmp_record_rec_ctx_t *rctx,
+                        ngx_rtmp_header_t *h, ngx_chain_t *in)
+{
+    ngx_time_t                      next;
+    ngx_rtmp_header_t               ch;
+    ngx_rtmp_codec_ctx_t           *codec_ctx;
+    ngx_int_t                       keyframe, brkframe;
+    ngx_rtmp_record_app_conf_t     *rracf;
+
+    rracf = rctx->conf;
+
+    if (rracf->flags & NGX_RTMP_RECORD_OFF) {
+        ngx_rtmp_record_ff_close(s, rctx);
+        return NGX_OK;
+    }
+
+    keyframe = (h->type == NGX_RTMP_MSG_VIDEO)
+             ? (ngx_rtmp_get_video_frame_type(in) == NGX_RTMP_VIDEO_KEY_FRAME)
+             : 0;
+
+    brkframe = (h->type == NGX_RTMP_MSG_VIDEO)
+             ? keyframe
+             : (rracf->flags & NGX_RTMP_RECORD_VIDEO) == 0;
+
+    if (brkframe && (rracf->flags & NGX_RTMP_RECORD_MANUAL) == 0) {
+
+        if (rracf->interval != (ngx_msec_t) NGX_CONF_UNSET) {
+
+            next = rctx->last;
+            next.msec += rracf->interval;
+            next.sec  += (next.msec / 1000);
+            next.msec %= 1000;
+
+            if (ngx_cached_time->sec  > next.sec ||
+               (ngx_cached_time->sec == next.sec &&
+                ngx_cached_time->msec > next.msec))
+            {
+                ngx_rtmp_record_ff_close(s, rctx);
+                ngx_rtmp_record_ff_open(s, rctx);
+            }
+
+        } else if (!rctx->failed) {
+            ngx_rtmp_record_ff_open(s, rctx);
+        }
+    }
+
+    if ((rracf->flags & NGX_RTMP_RECORD_MANUAL) &&
+        !brkframe && rctx->nframes == 0)
+    {
+        return NGX_OK;
+    }
+
+    if (NULL == rctx->ffctx) {
+        return NGX_OK;
+    }
+
+    if (h->type == NGX_RTMP_MSG_AUDIO &&
+       (rracf->flags & NGX_RTMP_RECORD_AUDIO) == 0)
+    {
+        return NGX_OK;
+    }
+
+    if (h->type == NGX_RTMP_MSG_VIDEO &&
+       (rracf->flags & NGX_RTMP_RECORD_VIDEO) == 0 &&
+       ((rracf->flags & NGX_RTMP_RECORD_KEYFRAMES) == 0 || !keyframe))
+    {
+        return NGX_OK;
+    }
+
+    if (!rctx->initialized) {
+
+        rctx->initialized = 1;
+        rctx->epoch = h->timestamp - rctx->time_shift;
+        /* Write the stream header, if any. */
+        if (0 > avformat_write_header(rctx->ffctx->oc, &rctx->ffctx->opt))
+        {
+            ngx_rtmp_record_ff_close(s, rctx);
+            return NGX_OK;
+        }
+
+    }
+
+    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    if (codec_ctx) {
+        ch = *h;
+
+        /* AAC header */
+        if (!rctx->aac_header_sent && codec_ctx->aac_header &&
+           (rracf->flags & NGX_RTMP_RECORD_AUDIO))
+        {
+            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                           "record: %V writing AAC header", &rracf->id);
+
+            ch.type = NGX_RTMP_MSG_AUDIO;
+            ch.mlen = ngx_rtmp_record_get_chain_mlen(codec_ctx->aac_header);
+
+            if (ngx_rtmp_record_ff_write_audio_frame(s, rctx, &ch,
+                                            codec_ctx->aac_header, 0)
+                != NGX_OK)
+            {
+                return NGX_OK;
+            }
+
+            rctx->aac_header_sent = 1;
+        }
+
+        /* AVC header */
+        if (!rctx->avc_header_sent && codec_ctx->avc_header &&
+           (rracf->flags & (NGX_RTMP_RECORD_VIDEO|
+                            NGX_RTMP_RECORD_KEYFRAMES)))
+        {
+            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                           "record: %V writing AVC header", &rracf->id);
+
+            ch.type = NGX_RTMP_MSG_VIDEO;
+            ch.mlen = ngx_rtmp_record_get_chain_mlen(codec_ctx->avc_header);
+
+            if (ngx_rtmp_record_ff_write_video_frame(s, rctx, &ch,
+                                            codec_ctx->avc_header, 0)
+                != NGX_OK)
+            {
+                return NGX_OK;
+            }
+
+            rctx->avc_header_sent = 1;
+        }
+    }
+
+    if (h->type == NGX_RTMP_MSG_VIDEO) {
+        if (codec_ctx && codec_ctx->video_codec_id == NGX_RTMP_VIDEO_H264 &&
+            !rctx->avc_header_sent)
+        {
+            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                           "record: %V skipping until H264 header", &rracf->id);
+            return NGX_OK;
+        }
+
+        if (ngx_rtmp_get_video_frame_type(in) == NGX_RTMP_VIDEO_KEY_FRAME &&
+            ((codec_ctx && codec_ctx->video_codec_id != NGX_RTMP_VIDEO_H264) ||
+             !ngx_rtmp_is_codec_header(in)))
+        {
+            rctx->video_key_sent = 1;
+        }
+
+        if (!rctx->video_key_sent) {
+            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                           "record: %V skipping until keyframe", &rracf->id);
+            return NGX_OK;
+        }
+
+    } else {
+        if (codec_ctx && codec_ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC &&
+            !rctx->aac_header_sent)
+        {
+            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                           "record: %V skipping until AAC header", &rracf->id);
+            return NGX_OK;
+        }
+    }
+
+    if (h->type == NGX_RTMP_MSG_AUDIO) {
+        return ngx_rtmp_record_ff_write_audio_frame(s, rctx, h, in, 1);
+    }
+    else if(h->type == NGX_RTMP_MSG_VIDEO) {
+        return ngx_rtmp_record_ff_write_video_frame(s, rctx, h, in, 1);
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_record_ff_open(ngx_rtmp_session_t *s,ngx_rtmp_record_rec_ctx_t *rctx)
+{
+    ngx_rtmp_record_app_conf_t *rracf;
+    ngx_str_t                   path;
+    uint32_t                    tag_size, timestamp;
+    int                         ret = 0;
+
+    rracf = rctx->conf;
+    tag_size = 0;
+
+    if (NULL != rctx->ffctx) {
+        return NGX_AGAIN;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "ff record: %V opening", &rracf->id);
+
+    ngx_memzero(rctx, sizeof(*rctx));
+    rctx->conf = rracf;
+    rctx->last = *ngx_cached_time;
+    rctx->timestamp = timestamp = ngx_cached_time->sec;
+
+    rctx->ffctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_record_ff_ctx_t));
+    if (NULL == rctx->ffctx) {
+        ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
+                          "alloc the record context: %V failed", &rracf->id);
+        return NGX_ERROR;
+    }
+
+    ngx_rtmp_record_make_path(s, rctx, &path);
+
+    /* init the record context */
+    /* TODO: set the options */
+    //av_dict_set(&opt, argv[i]+1, argv[i+1], 0);
+    avformat_alloc_output_context2(&rctx->ffctx->oc, NULL, NULL, (const char*)path.data);
+    if (!rctx->ffctx->oc) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                          "Could not deduce output format from file extension: using MPEG.");
+        avformat_alloc_output_context2(&rctx->ffctx->oc, NULL, "mpeg", (const char*)path.data);
+    }
+    if (NULL == rctx->ffctx->oc) {
+        ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
+                          "alloc the ff output context: %V failed", &rracf->id);
+        return NGX_ERROR;
+    }
+    rctx->ffctx->fmt = rctx->ffctx->oc->oformat;
+    /* Add the audio and video streams using the default format codecs
+     * and initialize the codecs. */
+    if ((rctx->ffctx->fmt->video_codec != AV_CODEC_ID_NONE)
+        &&(rracf->flags & NGX_RTMP_RECORD_VIDEO)) {
+        ngx_rtmp_record_ff_add_stream(s,&rctx->ffctx->video_stream, rctx->ffctx->oc,
+                                      &rctx->ffctx->video_codec, rctx->ffctx->fmt->video_codec);
+        rctx->ffctx->have_video = 1;
+    }
+    if ((rctx->ffctx->fmt->audio_codec != AV_CODEC_ID_NONE)
+        &&(rracf->flags & NGX_RTMP_RECORD_AUDIO)){
+        ngx_rtmp_record_ff_add_stream(s,&rctx->ffctx->audio_stream, rctx->ffctx->oc,
+                                      &rctx->ffctx->audio_codec, rctx->ffctx->fmt->audio_codec);
+        rctx->ffctx->have_audio = 1;
+    }
+    /* Now that all the parameters are set, we can open the audio and
+     * video codecs and allocate the necessary encode buffers. */
+    if (rctx->ffctx->have_video)
+        ngx_rtmp_record_ff_open_video(s,rctx->ffctx->oc, rctx->ffctx->video_codec,
+                                     &rctx->ffctx->video_stream, rctx->ffctx->opt);
+    if (rctx->ffctx->have_audio)
+        ngx_rtmp_record_ff_open_audio(s,rctx->ffctx->oc, rctx->ffctx->audio_codec,
+                                     &rctx->ffctx->audio_stream, rctx->ffctx->opt);
+    av_dump_format(rctx->ffctx->oc, 0, (const char*)path.data, 1);
+    /* open the output file, if needed */
+    if (!(rctx->ffctx->fmt->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&rctx->ffctx->oc->pb, (const char*)path.data, AVIO_FLAG_WRITE);
+        if (ret < 0) {
+            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                           "Could not open '%s': %s.", path.data,av_err2str(ret));
+            return NGX_ERROR;
+        }
+    }
+
+    rctx->ffctx->frame_buf
+        = ngx_create_temp_buf(s->connection->pool,NGX_RTMP_RECORD_FF_BUFFER_SIZE);
+    if(NULL == rctx->ffctx->frame_buf) {
+        return NGX_ERROR;
+    }
+
+    rctx->time_shift = timestamp;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "record: append , time=%uD, tag_size=%uD",
+                   timestamp, tag_size);
+
+    return NGX_OK;
+}
+static ngx_int_t
+ngx_rtmp_record_ff_close(ngx_rtmp_session_t *s,ngx_rtmp_record_rec_ctx_t *rctx)
+{
+    ngx_rtmp_record_app_conf_t *rracf;
+    void                      **app_conf;
+    ngx_int_t                   rc;
+    ngx_rtmp_record_done_t      v;
+
+    rracf = rctx->conf;
+
+    if (NULL == rctx->ffctx) {
+        return NGX_AGAIN;
+    }
+
+    if (rctx->initialized) {
+        /* Write the trailer, if any. The trailer must be written before you
+         * close the CodecContexts open when you wrote the header; otherwise
+         * av_write_trailer() may try to use memory that was freed on
+         * av_codec_close(). */
+        av_write_trailer(rctx->ffctx->oc);
+    }
+
+    /* Close each codec. */
+    if (rctx->ffctx->have_video)
+        ngx_rtmp_record_ff_close_stream(rctx->ffctx->oc, &rctx->ffctx->video_stream);
+    if (rctx->ffctx->have_audio)
+        ngx_rtmp_record_ff_close_stream(rctx->ffctx->oc, &rctx->ffctx->audio_stream);
+    if (!(rctx->ffctx->fmt->flags & AVFMT_NOFILE)) {
+        /* Close the output file. */
+        avio_closep(&rctx->ffctx->oc->pb);
+    }
+    /* free the stream */
+    avformat_free_context(rctx->ffctx->oc);
+
+    ngx_pfree(s->connection->pool,rctx->ffctx);
+    rctx->ffctx = NULL;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "ff record: %V closed", &rracf->id);
+
+    if (rracf->notify) {
+        ngx_rtmp_send_status(s, "NetStream.Record.Stop", "status",
+                             rracf->id.data ? (char *) rracf->id.data : "");
+    }
+
+    app_conf = s->app_conf;
+
+    if (rracf->rec_conf) {
+        s->app_conf = rracf->rec_conf;
+    }
+
+    v.recorder = rracf->id;
+    ngx_rtmp_record_make_path(s, rctx, &v.path);
+
+    rc = ngx_rtmp_record_done(s, &v);
+
+    s->app_conf = app_conf;
+
+    return rc;
+}
+
+
+
 
 static ngx_int_t
 ngx_rtmp_record_postconfiguration(ngx_conf_t *cf)
 {
     ngx_rtmp_core_main_conf_t          *cmcf;
+    ngx_rtmp_record_app_conf_t         *racf;
     ngx_rtmp_handler_pt                *h;
 
     ngx_rtmp_record_done = ngx_rtmp_record_done_init;
 
     cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
+    racf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_record_module);
+
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_AUDIO]);
     *h = ngx_rtmp_record_av;
@@ -1303,5 +2191,9 @@ ngx_rtmp_record_postconfiguration(ngx_conf_t *cf)
     next_stream_eof = ngx_rtmp_stream_eof;
     ngx_rtmp_stream_eof = ngx_rtmp_record_stream_eof;
 
+
     return NGX_OK;
 }
+
+
+
