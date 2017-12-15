@@ -46,7 +46,7 @@ typedef struct {
 
 typedef struct {
     zhandle_t                      *sch_zk_handle;
-    ngx_media_system_conf_t    sys_conf;
+    ngx_media_system_conf_t         sys_conf;
     ngx_event_t                     sch_zk_timer;
     ngx_pool_t                     *pool;
     ngx_log_t                      *log;

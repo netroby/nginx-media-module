@@ -30,6 +30,27 @@
 #define NGX_HTTP_STAT_PASSWD    "manage_password"
 #define NGX_HTTP_STATIC_TASK    "static_task"
 
+#define NGX_MEDIA_LIVE_CONF_FILE_DEFAULT       "../conf/shmcache.conf"
+
+#define NGX_MEDIA_LIVE                         "media_live"
+#define NGX_MEDIA_LIVE_ONPLAY                  "media_live_on_play"
+#define NGX_MEDIA_LIVE_ONPLAY_DONE             "media_live_on_play_done"
+#define NGX_MEDIA_LIVE_PLAY_TIMEOUT            "media_live_play_timeout"
+
+
+
+#define NGX_MEDIA_LIVE_CACHE                   "media_live_cache"
+#define NGX_MEDIA_LIVE_CACHE_CONFFILE          "media_live_cache_conf"
+#define NGX_MEDIA_LIVE_CACHE_COUNT             "media_live_cache_count"
+
+#define NGX_MEDIA_LIVE_SESSION_COUNT           "media_live_session_count"
+#define NGX_MEDIA_LIVE_SESSION_CACHE           "media_live_session_cache"
+
+
+
+
+
+
 
 
 
@@ -162,16 +183,15 @@ struct ngx_media_task_s {
     ngx_thread_mutex_t              task_mtx;
     ngx_event_t                     time_event;
     ngx_list_t                     *workers;       /* worker list of the task,(ngx_media_worker_ctx_t)*/
-    ngx_media_task_t          *next_task;
-    ngx_media_task_t          *prev_task;
+    ngx_media_task_t               *next_task;
+    ngx_media_task_t               *prev_task;
 };
 
 typedef struct {
     ngx_log_t                      *log;
-    ngx_media_task_t          *task_head;
+    ngx_media_task_t               *task_head;
     volatile ngx_uint_t             task_count;
     ngx_thread_mutex_t              task_thread_mtx;
-    ngx_event_t                     sch_zk_timer;
 } ngx_media_task_ctx_t;
 
 

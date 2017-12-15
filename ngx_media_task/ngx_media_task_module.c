@@ -154,7 +154,7 @@ static ngx_command_t  ngx_media_task_commands[] = {
 static ngx_http_module_t  ngx_media_task_module_ctx = {
     NULL,                                   /* preconfiguration */
     NULL,                                   /* postconfiguration */
-    ngx_media_task_create_main_conf,   /* create main configuration */
+    ngx_media_task_create_main_conf,        /* create main configuration */
     NULL,                                   /* init main configuration */
     NULL,                                   /* create server configuration */
     NULL,                                   /* merge server configuration */
@@ -165,15 +165,15 @@ static ngx_http_module_t  ngx_media_task_module_ctx = {
 
 ngx_module_t  ngx_media_task_module = {
     NGX_MODULE_V1,
-    &ngx_media_task_module_ctx,       /* module context */
-    ngx_media_task_commands,          /* module directives */
+    &ngx_media_task_module_ctx,            /* module context */
+    ngx_media_task_commands,               /* module directives */
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
-    ngx_media_task_init_process,      /* init process */
+    ngx_media_task_init_process,           /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
-    ngx_media_task_exit_process,      /* exit process */
+    ngx_media_task_exit_process,           /* exit process */
     NULL,                                  /* exit master */
     NGX_MODULE_V1_PADDING
 };
