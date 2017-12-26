@@ -233,5 +233,21 @@ ngx_video_strrchr(u_char *begin, u_char *last, u_char c)
     return NULL;
 }
 
+static ngx_inline u_char *
+ngx_media_time2string(u_char *buf, time_t t)
+{
+    ngx_tm_t  tm;
+
+    ngx_localtime(t, &tm);
+
+    return ngx_sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d",
+                       tm.tm_year,
+                       tm.tm_mon,
+                       tm.tm_mday,
+                       tm.tm_hour,
+                       tm.tm_min,
+                       tm.tm_sec);
+
+}
 
 #endif /*__H_HTTP_VIDEO_HEAD_H__*/

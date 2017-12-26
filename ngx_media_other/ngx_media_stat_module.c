@@ -51,7 +51,6 @@ static ngx_int_t  ngx_media_stat_manage_task(ngx_http_request_t *r);
 static ngx_int_t  ngx_media_stat_task_detail(ngx_http_request_t *r);
 static ngx_int_t  ngx_media_stat_error_html(ngx_http_request_t *r,ngx_int_t code);
 static ngx_int_t  ngx_media_stat_password(ngx_http_request_t *r,ngx_str_t* password);
-static u_char*    ngx_media_stat_time2string(u_char *buf, time_t t);
 static ngx_uint_t ngx_media_stat_worker_count(ngx_media_task_t *task);
 static ngx_int_t  ngx_media_stat_stop_task(ngx_http_request_t *r,ngx_str_t* taskid);
 static ngx_int_t  ngx_media_stat_stop_worker(ngx_http_request_t *r,ngx_str_t* taskid,ngx_str_t* workerid);
@@ -162,22 +161,6 @@ ngx_media_stat_init(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-static u_char *
-ngx_media_stat_time2string(u_char *buf, time_t t)
-{
-    ngx_tm_t  tm;
-
-    ngx_localtime(t, &tm);
-
-    return ngx_sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d",
-                       tm.tm_year,
-                       tm.tm_mon,
-                       tm.tm_mday,
-                       tm.tm_hour,
-                       tm.tm_min,
-                       tm.tm_sec);
-
-}
 static ngx_uint_t
 ngx_media_stat_worker_count(ngx_media_task_t *task)
 {
@@ -349,7 +332,7 @@ ngx_media_stat_list_task_html(ngx_http_request_t *r)
             {
                 worker = &array[loop];
 
-                ngx_media_stat_time2string(buf,worker->updatetime);
+                ngx_media_time2string(buf,worker->updatetime);
 
                 if(0 != i){
                    b->last = ngx_snprintf(b->last,NGX_HTTP_STAT_HTML_ROW_MAX,
