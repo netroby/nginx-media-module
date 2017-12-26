@@ -36,20 +36,7 @@
 #define NGX_MEDIA_LIVE_ONPLAY                  "media_live_on_play"
 #define NGX_MEDIA_LIVE_ONPLAY_DONE             "media_live_on_play_done"
 #define NGX_MEDIA_LIVE_PLAY_TIMEOUT            "media_live_play_timeout"
-
-
-
-#define NGX_MEDIA_LIVE_CACHE                   "media_live_cache"
-#define NGX_MEDIA_LIVE_CACHE_CONFFILE          "media_live_cache_conf"
-#define NGX_MEDIA_LIVE_CACHE_COUNT             "media_live_cache_count"
-
-#define NGX_MEDIA_LIVE_SESSION_COUNT           "media_live_session_count"
 #define NGX_MEDIA_LIVE_SESSION_CACHE           "media_live_session_cache"
-
-
-
-
-
 
 
 

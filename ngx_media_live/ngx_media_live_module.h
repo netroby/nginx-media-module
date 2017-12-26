@@ -22,7 +22,7 @@ typedef unsigned __int8     uint8_t;
 #endif
 
 
-ngx_uint_t ngx_media_live_hls_get_cur_count();
+ngx_uint_t ngx_media_live_hls_get_cur_count(ngx_http_request_t *r);
 
 
 
