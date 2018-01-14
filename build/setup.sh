@@ -60,6 +60,7 @@ build_ffmpeg()
                 --enable-shared         \
                 --enable-pic            \
                 --enable-libx264        \
+                --enable-libfdk-aac     \
                 --enable-gpl            \
                 --enable-pthreads       \
                 --enable-nonfree        \
@@ -83,6 +84,36 @@ build_ffmpeg()
     return 0
 }
 
+build_fdkaac()
+{
+    module_pack="fdk-aac-v0.1.5.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the ffmpeg package from server\n"
+        wget https://github.com/mstorsjo/fdk-aac/archive/v0.1.5.tar.gz -O ${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd fdk-aac*
+    
+    ./autogen.sh
+    
+    ./configure --prefix=${EXTEND_ROOT} 
+                
+    if [ 0 -ne ${?} ]; then
+        echo "configure fdk-aac fail!\n"
+        return 1
+    fi
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build fdk-aac fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
 build_x264()
 {
     module_pack="last_x264.tar.bz2"
@@ -624,6 +655,10 @@ build_extend_modules()
         return 1
     fi
     build_lame
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_fdkaac()
     if [ 0 -ne ${?} ]; then
         return 1
     fi

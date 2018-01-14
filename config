@@ -480,7 +480,7 @@ ALLMEDIA_LIBS="
                      -lMediaKenerl -lavfilter -lswscale -lavdevice -lavformat          \
                      -lavcodec  -lavutil -lswresample -lpostproc -lx264                \
                      -lfaac -lfaad -lmp3lame -lxml2 -liconv -llzma -lbz2               \
-                     -lzookeeper_mt -lcjson                                            \
+                     -lzookeeper_mt -lcjson  -lfdk-aac                                 \
                      -loss_c_sdk_static -laprutil-1 -lmxml -lapr-1 -lcurl              \
                      -Wl,-Bdynamic -ldl -pthread -lrt -lm                              \
                     "
