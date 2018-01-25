@@ -31,6 +31,8 @@
 #define REQ_ARG_DURATION     "duration"
 #define REQ_ARG_FPS          "fps"
 #define REQ_ARG_VPATH        "vpath"
+#define REQ_ARG_VFILE        "vfile"
+
 
 #define SUFFIXES_JPEG        ".jpeg"
 #define SUFFIXES_JPG         ".jpg"
@@ -60,6 +62,7 @@
 //static ngx_event_t          hls_check_event;
 
 typedef struct {
+    ngx_str_t                      source_dir;
     ngx_int_t                      snap_width;
     ngx_int_t                      snap_height;
     ngx_int_t                      snap_offset;
@@ -83,6 +86,13 @@ static ngx_command_t  ngx_media_snap_commands[] = {
       ngx_media_snap_init,
       0,
       0,
+      NULL },
+
+    { ngx_string("snap_source_dir"),
+      NGX_HTTP_LOC_CONF |NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_media_snap_loc_conf_t, source_dir),
       NULL },
 
     { ngx_string("snap_width"),
@@ -429,6 +439,7 @@ ngx_media_snap_handler(ngx_http_request_t *r)
     ngx_str_t                      arg;
     ngx_str_t                      strinput;
     ngx_str_t                      strvpath;
+    ngx_str_t                      strvfile;
 
     ngx_int_t                      width;
     ngx_int_t                      heigth;
@@ -441,6 +452,7 @@ ngx_media_snap_handler(ngx_http_request_t *r)
     ngx_str_null(&reqfile);
     ngx_str_null(&strinput);
     ngx_str_null(&strvpath);
+    ngx_str_null(&strvfile);
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                           "ngx http vido handle snap request.");
 
@@ -528,8 +540,11 @@ ngx_media_snap_handler(ngx_http_request_t *r)
             heigth = ngx_atoi(arg.data, arg.len);
             video_copy = 0;
         }
-        if (ngx_http_arg(r, (u_char *) REQ_ARG_VPATH, ngx_strlen(REQ_ARG_VPATH), &strinput) != NGX_OK) {
-            strinput.len = 0;
+        if (ngx_http_arg(r, (u_char *) REQ_ARG_VPATH, ngx_strlen(REQ_ARG_VPATH), &strvpath) != NGX_OK) {
+            strvpath.len = 0;
+        }
+        if (ngx_http_arg(r, (u_char *) REQ_ARG_VFILE, ngx_strlen(REQ_ARG_VFILE), &strvfile) != NGX_OK) {
+            strvfile.len = 0;
         }
         if (ngx_http_arg(r, (u_char *) REQ_ARG_OFFSET, ngx_strlen(REQ_ARG_OFFSET), &arg) == NGX_OK) {
              offset = ngx_atoi(arg.data, arg.len);
@@ -541,8 +556,27 @@ ngx_media_snap_handler(ngx_http_request_t *r)
              fps= ngx_atoi(arg.data, arg.len);
         }
     }
+
+    strinput.len = 0;
+
+    if((0 < strvpath.len) &&(NULL != strvpath.data)) {
+        strinput.data = strvpath.data;
+        strinput.len = strvpath.len;
+    }
+    else if(((0 < strvfile.len) &&(NULL != strvfile.data))
+        &&((0 < video_conf->source_dir.len) &&(NULL != video_conf->source_dir.data))){
+        strinput.len = video_conf->source_dir.len + strvfile.len + 2;
+        strinput.data = ngx_pcalloc(r->pool,strinput.len);
+        if('/' == video_conf->source_dir.data[video_conf->source_dir.len - 1]) {
+            last = ngx_snprintf(strinput.data,strinput.len,"%V%V",&video_conf->source_dir,&strvfile);
+        }
+        else {
+            last = ngx_snprintf(strinput.data,strinput.len,"%V/%V",&video_conf->source_dir,&strvfile);
+        }
+        *last = '\0';
+    }
     else {
-        strinput.len = 0;
+        return NGX_ERROR;
     }
 
     /*  remove the args from the uri */
@@ -638,6 +672,7 @@ ngx_media_snap_create_loc_conf(ngx_conf_t *cf)
     {
         return NULL;
     }
+    ngx_str_null(&conf->source_dir);
     conf->snap_width     = NGX_CONF_UNSET;
     conf->snap_height    = NGX_CONF_UNSET;
     conf->snap_offset    = NGX_CONF_UNSET;
@@ -663,11 +698,6 @@ ngx_media_snap_init(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         ngx_log_error(NGX_LOG_EMERG, cf->log, 0, "hls video init the worker fail!");
         return NGX_CONF_ERROR;
     }
-
-    //hls_check_event.handler = ngx_media_snap_check_task;
-    //hls_check_event.log = cf->log;
-    //hls_check_event.data = cf;
-
 
     return NGX_CONF_OK;
 }
