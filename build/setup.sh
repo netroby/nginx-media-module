@@ -494,7 +494,8 @@ build_mk_module()
     
     cd libMediakenerl*
     cd build/linux/
-    ./setup -p ${EXTEND_ROOT} -t ${THIRD_ROOT}
+    chmod +x setup.sh
+    ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT}
     if [ 0 -ne ${?} ]; then
         echo "build the media kernel module fail!\n"
         return 1
