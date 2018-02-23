@@ -28,16 +28,16 @@ quit()
 
 build_libxml2()
 {
-    module_pack="libxml2-sources-2.9.3.tar.gz"
+    module_pack="libxml2-2.9.7.tar.gz"
     cd ${THIRD_ROOT}
     if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
         echo "start get the libxml2 package from server\n"
-        wget ftp://gd.tuwien.ac.at/pub/libxml/${module_pack}
+        wget ftp://xmlsoft.org/libxml2/${module_pack}
     fi
     tar -zxvf ${module_pack}
     
     cd libxml2*
-    ./configure --prefix=${EXTEND_ROOT} --enable-shared=no --with-zlib=${EXTEND_ROOT} --with-iconv=${EXTEND_ROOT}
+    ./configure --prefix=${PREFIX_ROOT} --enable-shared=no --with-sax1 --with-zlib=${PREFIX_ROOT} --with-iconv=${PREFIX_ROOT}
                 
     if [ 0 -ne ${?} ]; then
         echo "configure libxml2 fail!\n"
