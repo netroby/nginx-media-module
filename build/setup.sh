@@ -26,214 +26,6 @@ quit()
     QUIT=$1
 }
 
-
-build_ffmpeg()
-{
-    module_pack="ffmpeg-3.2.1.tar.gz"
-    cd ${THIRD_ROOT}
-    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the ffmpeg package from server\n"
-        wget http://ffmpeg.org/releases/${module_pack}
-    fi
-    tar -zxvf ${module_pack}
-    
-    cd ffmpeg*
-    patch -p0 <${PATCH_ROOT}/ffmpeg_hlsen_c.patch
-    patch -p0 <${PATCH_ROOT}/ffmpeg_rtsp_c.patch
-    patch -p0 <${PATCH_ROOT}/ffmpeg_rtsp_h.patch
-    patch -p0 <${PATCH_ROOT}/ffmpeg_http_c.patch
-    sed -i 's/^#define LIBAVCODEC_IDENT*$/#define LIBAVCODEC_IDENT ${ALLMEDIAVERSION} /g' ./libavcodec/version.h 
-    sed -i 's/^#define LIBAVDEVICE_IDENT*$/#define LIBAVDEVICE_IDENT ${ALLMEDIAVERSION} /g' ./libavdevice/version.h
-    sed -i 's/^#define LIBAVFILTER_IDENT*$/#define LIBAVFILTER_IDENT ${ALLMEDIAVERSION} /g' ./libavfilter/version.h
-    sed -i 's/^#define LIBAVFORMAT_IDENT*$/#define LIBAVFORMAT_IDENT ${ALLMEDIAVERSION} /g' ./libavformat/version.h
-    sed -i 's/^#define LIBAVRESAMPLE_IDENT*$/#define LIBAVRESAMPLE_IDENT ${ALLMEDIAVERSION} /g' ./libavresample/version.h
-    sed -i 's/^#define LIBAVUTIL_IDENT*$/#define LIBAVUTIL_IDENT ${ALLMEDIAVERSION} /g' ./libavutil/version.h
-    sed -i 's/^#define LIBPOSTPROC_IDENT*$/#define LIBPOSTPROC_IDENT ${ALLMEDIAVERSION} /g' ./libpostproc/version.h
-    sed -i 's/^#define LIBSWRESAMPLE_IDENT*$/#define LIBSWRESAMPLE_IDENT ${ALLMEDIAVERSION} /g' ./libswresample/version.h
-    sed -i 's/^#define LIBSWSCALE_IDENT*$/#define LIBSWSCALE_IDENT ${ALLMEDIAVERSION} /g' ./libswscale/version.h
-
-    ./configure --prefix=${EXTEND_ROOT} \
-                --disable-ffplay        \
-                --disable-ffprobe       \
-                --disable-ffserver      \
-                --disable-yasm          \
-                --enable-shared         \
-                --enable-pic            \
-                --enable-libx264        \
-                --enable-libfdk-aac     \
-                --enable-gpl            \
-                --enable-pthreads       \
-                --enable-nonfree        \
-                --extra-cflags=-I${EXTEND_ROOT}/include --extra-ldflags=-L/${EXTEND_ROOT}/lib
-                
-    if [ 0 -ne ${?} ]; then
-        echo "configure ffmpeg fail!\n"
-        return 1
-    fi
-                
-    make && make install
-    
-    if [ 0 -ne ${?} ]; then
-        echo "build ffmpeg fail!\n"
-        return 1
-    fi
-    
-    #change the libavutil/time.h to libavutil/avtime.h
-    
-    mv ${EXTEND_ROOT}/include/libavutil/time.h ${EXTEND_ROOT}/include/libavutil/avtime.h
-    return 0
-}
-
-build_fdkaac()
-{
-    module_pack="fdk-aac-v0.1.5.tar.gz"
-    cd ${THIRD_ROOT}
-    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the ffmpeg package from server\n"
-        wget https://github.com/mstorsjo/fdk-aac/archive/v0.1.5.tar.gz -O ${module_pack}
-    fi
-    tar -zxvf ${module_pack}
-    
-    cd fdk-aac*
-    
-    ./autogen.sh
-    
-    ./configure --prefix=${EXTEND_ROOT} 
-                
-    if [ 0 -ne ${?} ]; then
-        echo "configure fdk-aac fail!\n"
-        return 1
-    fi
-                
-    make && make install
-    
-    if [ 0 -ne ${?} ]; then
-        echo "build fdk-aac fail!\n"
-        return 1
-    fi
-    
-    return 0
-}
-build_x264()
-{
-    module_pack="last_x264.tar.bz2"
-    cd ${THIRD_ROOT}
-    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the x264 package from server\n"
-        wget ftp://ftp.videolan.org/pub/x264/snapshots/${module_pack}
-    fi
-    tar -jxvf ${module_pack}
-    
-    cd x264*
-    ./configure --prefix=${EXTEND_ROOT} \
-                --disable-asm \
-                --enable-static \
-                --enable-pic \
-                --disable-opencl  \
-                --disable-avs \
-                --disable-cli \
-                --disable-ffms \
-                --disable-gpac  \
-                --disable-lavf  \
-                --disable-swscale 
-    if [ 0 -ne ${?} ]; then
-        echo "configure x264 fail!\n"
-        return 1
-    fi
-                
-    make && make install
-    
-    if [ 0 -ne ${?} ]; then
-        echo "build x264 fail!\n"
-        return 1
-    fi
-    
-    return 0
-}
-
-build_ffad()
-{
-    module_pack="faad2-2.7.tar.gz"
-    cd ${THIRD_ROOT}
-    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the faad2 package from server\n"
-        wget http://downloads.sourceforge.net/faac/${module_pack}
-    fi
-    tar -zxvf ${module_pack}
-    
-    cd faad2*
-    ./configure --prefix=${EXTEND_ROOT} 
-    if [ 0 -ne ${?} ]; then
-        echo "configure faad2 fail!\n"
-        return 1
-    fi
-                
-    make && make install
-    
-    if [ 0 -ne ${?} ]; then
-        echo "build faad2 fail!\n"
-        return 1
-    fi
-    
-    return 0
-}
-
-build_faac()
-{
-    module_pack="faac-1.28.tar.gz"
-    cd ${THIRD_ROOT}
-    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the faac-1 package from server\n"
-        wget http://downloads.sourceforge.net/faac/${module_pack}
-    fi
-    tar -zxvf ${module_pack}
-    
-    cd faac*
-    patch -p0 <${PATCH_ROOT}/faac.patch
-    ./configure --prefix=${EXTEND_ROOT} 
-    if [ 0 -ne ${?} ]; then
-        echo "configure faac fail!\n"
-        return 1
-    fi
-                
-    make && make install
-    
-    if [ 0 -ne ${?} ]; then
-        echo "build faac fail!\n"
-        return 1
-    fi
-    
-    return 0
-}
-
-build_lame()
-{
-    module_pack="lame-3.99.5.tar.gz"
-    cd ${THIRD_ROOT}
-    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the lame package from server\n"
-        wget https://sourceforge.net/projects/lame/files/lame/3.99/${module_pack}
-    fi
-    tar -zxvf ${module_pack}
-    
-    cd lame*
-    ./configure --prefix=${EXTEND_ROOT} 
-    if [ 0 -ne ${?} ]; then
-        echo "configure lame fail!\n"
-        return 1
-    fi
-                
-    make && make install
-    
-    if [ 0 -ne ${?} ]; then
-        echo "build lame fail!\n"
-        return 1
-    fi
-    
-    return 0
-}
-
-
 build_libxml2()
 {
     module_pack="libxml2-sources-2.9.3.tar.gz"
@@ -654,31 +446,7 @@ build_extend_modules()
     if [ 0 -ne ${?} ]; then
         return 1
     fi
-    build_lame
-    if [ 0 -ne ${?} ]; then
-        return 1
-    fi
-    build_fdkaac()
-    if [ 0 -ne ${?} ]; then
-        return 1
-    fi
-    build_faac
-    if [ 0 -ne ${?} ]; then
-        return 1
-    fi
-    build_ffad
-    if [ 0 -ne ${?} ]; then
-        return 1
-    fi
-    build_x264
-    if [ 0 -ne ${?} ]; then
-        return 1
-    fi
     build_xzutils
-    if [ 0 -ne ${?} ]; then
-        return 1
-    fi
-    build_ffmpeg
     if [ 0 -ne ${?} ]; then
         return 1
     fi
@@ -720,24 +488,18 @@ build_mk_module()
     cd ${THIRD_ROOT}
     if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
         echo "start get the libxml2 package from server\n"
-        wget https://github.com/M-kernel/libMediakenerl/archive/master.zip -O ${module_pack}
+        wget https://github.com/H-kernel/libMediakenerl/archive/master.zip -O ${module_pack}
     fi
     unzip -o ${module_pack}
     
     cd libMediakenerl*
-    cd build
-    make -f Makefile prefix=${EXTEND_ROOT} with-ffmpeg=${EXTEND_ROOT}
+    cd build/linux/
+    ./setup -p ${EXTEND_ROOT} -t ${THIRD_ROOT}
     if [ 0 -ne ${?} ]; then
         echo "build the media kernel module fail!\n"
         return 1
     fi
     
-    make install -f Makefile prefix=${EXTEND_ROOT} with-ffmpeg=${EXTEND_ROOT}
-    if [ 0 -ne ${?} ]; then
-        echo "install the media kernel module fail!\n"
-        return 1
-    fi
-
     return 0
 }
 
