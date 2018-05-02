@@ -139,7 +139,8 @@ ALLMEDIA_HTTP_FILTER_MODULES="
                           ngx_http_vod_module                                          \
                           "                        
                                                                                   
-ALLMEDIA_CORE_MODULES="   ngx_rtmp_module                                              \
+ALLMEDIA_CORE_MODULES="   ngx_http_client_module                                       \
+                          ngx_rtmp_module                                              \
                           ngx_rtmp_core_module                                         \
                           ngx_rtmp_cmd_module                                          \
                           ngx_rtmp_codec_module                                        \
@@ -158,10 +159,11 @@ ALLMEDIA_CORE_MODULES="   ngx_rtmp_module                                       
                           ngx_rtmp_log_module                                          \
                           ngx_rtmp_limit_module                                        \
                           ngx_rtmp_hls_module                                          \
-                          ngx_rtmp_dash_module                                         \
+                          ngx_rtmp_dash_module                                         \                          
                         "                                                         
                                                                                   
 ALLMEDIA_ADDON_INCS="$ngx_addon_dir                                                    \
+                     $ngx_addon_dir/ngx_media_http_client/                             \
                      $ngx_addon_dir/ngx_media_task/                                    \
                      $ngx_addon_dir/ngx_media_other/                                   \
                      $ngx_addon_dir/ngx_media_rtmp/                                    \
@@ -175,11 +177,15 @@ ALLMEDIA_ADDON_INCS="$ngx_addon_dir                                             
                      $ngx_addon_dir/build/extend/include/apr-1/                        \
                     "
 
-ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_common/ngx_media_include.h               \
+ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_http_client/ngx_client.h                 \
+                     $ngx_addon_dir/ngx_media_http_client/ngx_http_client.h            \
+                     $ngx_addon_dir/ngx_media_http_client/ngx_http_digest.h            \
+                     $ngx_addon_dir/ngx_media_common/ngx_media_include.h               \
                      $ngx_addon_dir/ngx_media_task/ngx_media_task_module.h             \
                      $ngx_addon_dir/ngx_media_task/ngx_media_worker.h                  \
                      $ngx_addon_dir/ngx_media_task/ngx_media_worker_mediakernel.h      \
                      $ngx_addon_dir/ngx_media_task/ngx_media_worker_transfer.h         \
+                     $ngx_addon_dir/ngx_media_task/ngx_media_worker_mss.h              \
                      $ngx_addon_dir/ngx_media_other/ngx_media_snap_module.h            \
                      $ngx_addon_dir/ngx_media_other/ngx_media_upload_module.h          \
                      $ngx_addon_dir/ngx_media_other/ngx_media_upload_progress_module.h \
@@ -331,11 +337,14 @@ ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_common/ngx_media_include.h        
                     "
 
 
-ALLMEDIA_HTTP_SRCS="
+ALLMEDIA_HTTP_SRCS=" $ngx_addon_dir/ngx_media_http_client/ngx_client.c                 \
+                     $ngx_addon_dir/ngx_media_http_client/ngx_http_client.c            \
+                     $ngx_addon_dir/ngx_media_http_client/ngx_http_digest.c            \
                      $ngx_addon_dir/ngx_media_task/ngx_media_task_module.c             \
                      $ngx_addon_dir/ngx_media_task/ngx_media_worker.c                  \
                      $ngx_addon_dir/ngx_media_task/ngx_media_worker_mediakernel.c      \
                      $ngx_addon_dir/ngx_media_task/ngx_media_worker_transfer.c         \
+                     $ngx_addon_dir/ngx_media_task/ngx_media_worker_mss.c              \
                      $ngx_addon_dir/ngx_media_other/ngx_media_snap_module.c            \
                      $ngx_addon_dir/ngx_media_other/ngx_media_upload_module.c          \
                      $ngx_addon_dir/ngx_media_other/ngx_media_upload_progress_module.c \

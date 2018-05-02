@@ -30,6 +30,7 @@ typedef unsigned __int8     uint8_t;
 enum ngx_http_worker {
     ngx_media_worker_mediakernel     = 0,
     ngx_media_worker_tranfer         = 1,
+    ngx_media_worker_mss             = 2,
     ngx_media_worker_invalid
 };
 
@@ -37,7 +38,8 @@ enum ngx_media_worker_status {
     ngx_media_worker_status_init     = 0,
     ngx_media_worker_status_start    = 1,
     ngx_media_worker_status_running  = 2,
-    ngx_media_worker_status_stop     = 3
+    ngx_media_worker_status_break    = 3,
+    ngx_media_worker_status_end
 };
 
 typedef struct {
@@ -60,7 +62,7 @@ typedef struct {
     ngx_pool_t                     *pool;
     ngx_log_t                      *log;
     ngx_thread_mutex_t              work_mtx;
-    ngx_media_worker_t        *worker;
+    ngx_media_worker_t             *worker;
     ngx_uint_t                      priv_data_size;/* Size of private data .*/
     void                           *priv_data;     /* private data point.*/
     ngx_list_t                     *triggerStart;  /* trigger list(ngx_media_worker_trigger_ctx) after curren worker the starting */
@@ -71,7 +73,7 @@ typedef void (*WK_WATCH)(ngx_uint_t status,ngx_media_worker_ctx_t* ctx);
 
 struct ngx_media_worker_s{
     ngx_uint_t                      type;
-    ngx_media_worker_t        *next;
+    ngx_media_worker_t             *next;
     ngx_int_t                       (*init_worker)(ngx_media_worker_ctx_t* ctx,WK_WATCH watch);
     ngx_int_t                       (*release_worker)(ngx_media_worker_ctx_t* ctx);
     ngx_int_t                       (*start_worker)(ngx_media_worker_ctx_t* ctx);

@@ -15,8 +15,10 @@ ngx_media_register_all_worker()
     first_worker = &ngx_video_mediakernel_worker;
     extern ngx_media_worker_t ngx_video_transfer_worker;
     ngx_video_mediakernel_worker.next = &ngx_video_transfer_worker;
+    extern ngx_media_worker_t ngx_video_mss_worker;
+    ngx_video_transfer_worker.next = &ngx_video_mss_worker;
 
-    ngx_video_transfer_worker.next = NULL;
+    ngx_video_mss_worker.next = NULL;
     return;
 }
 

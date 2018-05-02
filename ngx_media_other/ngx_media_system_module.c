@@ -646,6 +646,8 @@ ngx_media_system_zk_update_stat_completion_t(int rc, const char *value, int valu
 
        zoo_aset(conf->sch_zk_handle,conf->sys_conf.str_zk_path,json_buf,ngx_strlen(json_buf),-1,ngx_media_system_zk_stat_completion_t,conf);
 
+       free(json_buf);
+
        cJSON_Delete(root);
 
     }

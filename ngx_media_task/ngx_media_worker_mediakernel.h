@@ -8,7 +8,7 @@ typedef struct {
     MK_HANDLE                       run_handle;
     mk_task_stat_info_t             worker_stat;
     WK_WATCH                        watcher;
-    ngx_media_worker_ctx_t    *wk_ctx;
+    ngx_media_worker_ctx_t         *wk_ctx;
     ngx_event_t                     timer;
 } ngx_worker_mk_ctx_t;
 

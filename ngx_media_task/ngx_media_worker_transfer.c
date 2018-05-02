@@ -74,7 +74,7 @@ typedef struct {
     ngx_pool_t                     *pool;
     ngx_log_t                      *log;
     WK_WATCH                        watcher;
-    ngx_media_worker_ctx_t    *wk_ctx;
+    ngx_media_worker_ctx_t         *wk_ctx;
     pthread_t                       threadid;
     ngx_uint_t                      running;
     ngx_uint_t                      transType;
@@ -544,7 +544,7 @@ ngx_media_worker_transfer_thread(void *data)
 
     ngx_media_worker_transfer_delete(trans_ctx);
     if(trans_ctx->watcher) {
-        trans_ctx->watcher(ngx_media_worker_status_stop,trans_ctx->wk_ctx);
+        trans_ctx->watcher(ngx_media_worker_status_end,trans_ctx->wk_ctx);
     }
     ngx_log_error(NGX_LOG_DEBUG, trans_ctx->log, 0,
                           "ngx_media_worker_transfer_thread end.");

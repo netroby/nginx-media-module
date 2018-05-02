@@ -48,7 +48,21 @@ ngx_media_worker_mk_timer(ngx_event_t *ev)
     if(MK_ERROR_CODE_OK != ret) {
         return;
     }
-    worker_ctx->watcher(status,worker_ctx->wk_ctx);
+    if(MK_TASK_STATUS_INIT == status) {
+        worker_ctx->watcher(ngx_media_worker_status_init,worker_ctx->wk_ctx);
+    }
+    else if(MK_TASK_STATUS_START == status) {
+        worker_ctx->watcher(ngx_media_worker_status_start,worker_ctx->wk_ctx);
+    }
+    else if(MK_TASK_STATUS_RUNNING == status) {
+        worker_ctx->watcher(ngx_media_worker_status_running,worker_ctx->wk_ctx);
+    }
+    else if(MK_TASK_STATUSS_STOP == status) {
+        worker_ctx->watcher(ngx_media_worker_status_end,worker_ctx->wk_ctx);
+    }
+    else {
+        worker_ctx->watcher(ngx_media_worker_status_break,worker_ctx->wk_ctx);
+    }
 
     if(MK_TASK_STATUSS_STOP == status) {
         return;
@@ -125,6 +139,7 @@ ngx_media_worker_mk_start(ngx_media_worker_ctx_t* ctx)
 
     if (MK_ERROR_CODE_OK != ret ) {
         mk_destory_handle(worker_ctx->run_handle);
+        worker_ctx->run_handle = NULL;
         return NGX_ERROR;
     }
 

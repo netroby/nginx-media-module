@@ -279,7 +279,10 @@ ngx_media_stat_list_task_html(ngx_http_request_t *r)
         else if(task->status == ngx_media_worker_status_running) {
             status = (u_char*)TASK_COMMAND_RUNNING;
         }
-        else if(task->status == ngx_media_worker_status_stop) {
+        else if(task->status == ngx_media_worker_status_end) {
+            status = (u_char*)TASK_COMMAND_STOP;
+        }
+        else if(task->status == ngx_media_worker_status_break) {
             status = (u_char*)TASK_COMMAND_STOP;
         }
         else {
@@ -345,7 +348,10 @@ ngx_media_stat_list_task_html(ngx_http_request_t *r)
                 else if(worker->status == ngx_media_worker_status_running) {
                     status = (u_char*)TASK_COMMAND_RUNNING;
                 }
-                else if(worker->status == ngx_media_worker_status_stop) {
+                else if(worker->status == ngx_media_worker_status_end) {
+                    status = (u_char*)TASK_COMMAND_STOP;
+                }
+                else if(worker->status == ngx_media_worker_status_break) {
                     status = (u_char*)TASK_COMMAND_STOP;
                 }
                 else {
