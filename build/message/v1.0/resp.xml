@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<resp version="1.0">
+    <task type="transc" target="start">
+        <param n="src"             v="./1.wmv" />
+        <param n="dst"             v="./2.mp4" />
+        <param n="name"            v="h264"         />
+        <param n="profile"         v="high_profile" />
+        <param n="level"           v="51"           />
+        <param n="fastmode"        v="2"            />
+        <param n="width"           v="-1"           />
+        <param n="height"          v="720"          />
+        <param n="bitrate"         v="1200"         />
+        <param n="bitratectrl"     v="0"            />
+        <param n="framerate"       v="-1"           />
+        <param n="keyframerate"    v="1"            />
+        <param n="referenceframes" v="3"            />
+        <param n="bframes"         v="3"            />
+        <param n="multithreads"    v="4"            />
+        <param n="name"            v="aac"          />
+        <param n="samplerate"      v="-1"           />
+        <param n="channels"        v="1"            />
+        <param n="bitrate"         v="32"           />
+    </task>
+    <result>
+        <param n="status"     v="running"        />
+		<param n="starttime"  v="20160130123500" />
+		<param n="endtime"    v="20160130143500" />
+    </result>
+</resp>

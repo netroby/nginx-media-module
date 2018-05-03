@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+	<task taskid="0123456789" command="start"> <!-- command:start,stop,update -->
+	    <report interval="0" url="http://112.4.10.132:8000/Homegw/vodCallback" />
+		<workers>
+			<worker id="2" type="1" master="0">
+				<params>
+				    <param name="trans_type"        value="upload"         />
+					<param name="src_dir"           value="/mnt/upload/"   />
+			        <param name="dst_fs"            value="oss" />
+                    <param name="oss_endpoint"      value="http://oss-cn-hangzhou.aliyuncs.com" />                    
+				    <param name="oss_bucket"        value="allcam-huabo"  />
+					<param name="oss_object"        value="test"  />
+					<param name="oss_appkey"        value="h8K5js7NEqfvdzWX"  />
+					<param name="oss_appSecrect"    value="ySsSEU6YR9HyBRiNJItWVTbR1ZUxub"  />
+                    <param name="oss_multupload"     />
+					<param name="action"            value="move"  />
+			    </params>
+			</worker>		
+		</workers>
+    </task>
+</req>
+

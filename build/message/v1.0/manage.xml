@@ -1,0 +1,70 @@
+<!-- stat storage -->
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+    <stat id="0123456789" type="storage" /><!--type:transcode,hls,live,storage -->
+</req>
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<resp version="1.0" err_code="0" err_msg="success">
+    <stat id="0123456789" type="storage" /><!--type:transcode,hls,live,storage -->
+	    <stat_info object="/home/update">
+		    <stat name="total_size" unit="KB" value="1024" />
+			<stat name="free_size" unit="KB" value="1024" />
+			<stat name="dir" unit="one" value="5" />
+			<stat name="file" unit="one" value="500" />
+		</stat_info>
+		<stat_info object="/opt/media">
+		    <stat name="total_size" unit="KB" value="1024" />
+			<stat name="free_size" unit="KB" value="1024" />
+			<stat name="dir" unit="one" value="5" />
+			<stat name="file" unit="one" value="500" />
+		</stat_info>
+    </stat>
+</resp>
+
+<!-- operate storage -->
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+    <operate id="0123456789" type="create" ><!--type:create,delete,move,stat-->
+	    <param name="/home/update/030001010500000802.mp4" />
+	</operate>
+</req>
+<?xml version="1.0" encoding="UTF-8" ?>
+<resp version="1.0" err_code="0" err_msg="success">
+    <operate id="0123456789" type="create" ><!--type:create,delete,move,stat -->
+	    <param name="/home/update/030001010500000802.mp4" >
+			<upload  url="http://192.168.1.1/upload/030001010500000802.mp4 />
+			<download  url="http://192.168.1.1/download/030001010500000802.mp4 />
+		</param>
+	</operate>
+</resp>
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+    <operate id="0123456789" type="delete" ><!--type:create,delete,move,stat -->
+	    <param name="/home/update/030001010500000802.mp4" />
+	</operate>
+</req>
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<resp version="1.0" err_code="0" err_msg="success">
+    <operate id="0123456789" type="delete" ><!--type:create,delete,move,stat -->
+	    <param name="/home/update/030001010500000802.mp4" />
+	</operate>
+</resp>
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+    <operate id="0123456789" type="stat" ><!--type:create,delete,move,stat -->
+	    <param name="/home/update/030001010500000802.mp4" />
+	</operate>
+</req>
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<resp version="1.0" err_code="0" err_msg="success">
+    <operate id="0123456789" type="stat" ><!--type:create,delete,move,stat -->
+	    <param name="/home/update/030001010500000802.mp4" >
+		    <info exist="yes" type="file"/><!--exist:yes,no;type:file,dir,none -->
+		</param>
+	</operate>
+</resp>

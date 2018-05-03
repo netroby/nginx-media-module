@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+	<task taskid="0123456789" command="start"> <!-- command:start,stop,update -->
+	    <report interval="0" url="http://112.4.10.132:8000/Homegw/vodCallback" />
+		<workers>
+		    <worker id="0" type="2" master="1">
+				<params>
+                    <param name="mss_addr"          value="http://192.168.1.1:80/api/mss/xxxx" />
+                    <name  name="mss_cameraid"      value="011234567890123456789" />
+                    <param name="mss_type"          value="record" /> <!--live,record -->
+                    <param name="mss_starttime"     value="2018111111111" />
+                    <param name="mss_endtime"       value="2018111111111" />
+                    <param name="rtsp_transport"    value="tcp" /> 
+					<param name="vcodec"            value="copy" />
+					<param name="acodec"            value="aac"      />
+			        <param name="f"                 value="flv"     />
+                    <param name="dst"               value="$(workspace)/0.mp4"  /> <!-- copy move -->
+			    </params>
+                <triggers>
+					<trigger after="stop"  worker="1" delay="0" />
+				</triggers>
+			</worker>
+            <worker id="1" type="2" master="0">
+				<params>
+                    <param name="mss_addr"          value="http://192.168.1.1:80/api/mss/xxxx" />
+                    <name  name="mss_cameraid"      value="011234567890123456789" />
+                    <param name="mss_type"          value="record" /> <!--live,record -->
+                    <param name="mss_starttime"     value="2018111111111" />
+                    <param name="mss_endtime"       value="2018111111111" />
+                    <param name="rtsp_transport"    value="tcp" /> 
+					<param name="vcodec"            value="copy" />
+					<param name="acodec"            value="aac"      />
+			        <param name="f"                 value="flv"     />
+                    <param name="dst"               value="$(workspace)/1.mp4"  /> <!-- copy move -->
+			    </params>
+                <triggers>
+					<trigger after="stop"  worker="2" delay="0" />
+				</triggers>
+			</worker>
+            <worker id="2" type="0" master="0">
+				<params>
+                    <param name="src"  value="0.mp4" />
+                    <param name="src"  value="1.mp4" />
+                    <param name="dst"  value="$(storage)/xxxxxxx.mp4"  /> 
+			    </params>
+			</worker>
+		</workers>
+    </task>
+</req>
+

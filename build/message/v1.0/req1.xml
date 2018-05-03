@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+    <task taskid="0123456789" command="start"> <!-- command:start,stop,update -->
+	    <report interval="0" url="http://192.168.1.0:8080/report" />
+	    <task_params>
+		    <common_params>
+				<param n="src"             v="./1.wmv"      />
+				<param n="dst"             v="./2.mp4"      />
+			</common_params>
+			<input path="rtsp%3A%2F%2F115.28.143.169%3A554%2Fdevice%3Fcontentid%3D030001010500000802%3A1%26sessionid%3D3994df71158f2a1d3037%26timestamp%3D20140108225800%26timeout%3D30%26encrypt%3Dnul">
+				<param n="rtsp_transport"  v="tcp"         />
+			</input>
+			<output path="/home/update/030001010500000802.mp4">
+			    <param n="vcodec"          v="copy"          />
+				<param n="t"               v="30"          />
+			</output>
+		</task_params>
+    </task>
+</req>

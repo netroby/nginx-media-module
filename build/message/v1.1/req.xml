@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+	<task taskid="0123456789" command="start"> <!-- command:start,stop,update -->
+	    <report interval="0" url="http://112.4.10.132:8000/Homegw/vodCallback" />
+		<workers>
+			<worker delay="0" master="1" repeat="0">
+				<input path="rtsp%3a%2f%2f115.28.143.169%3a554%2flive%3fcontentid%3d030001010500000636%3a1%26sessionid%3db4aa98d1cc67f2f26430%26timestamp%3d20150616093131%26timeout%3d30%26encrypt%3df14a8f6b954b519b60808f694e88bf9f">
+					<param name="rtsp_transport"  value="tcp"         />
+				</input>
+				<output path="/home/update/030001010500000802.mp4">
+			        <param name="vcodec"          value="copy"        />				
+				    <param name="t"               value="30"          />
+			    </output>
+			</worker>
+		</workers>
+    </task>
+</req>
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<resp version="1.0" err_code="0" err_msg="success">
+    <task taskid="0123456789" command="start" /> <!-- command:start,stop,update -->
+</resp>

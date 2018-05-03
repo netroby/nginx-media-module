@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+    <task taskid="0123456789" command="start"> <!-- command:start,stop,update -->
+	    <report interval="0" url="http://112.4.10.132:8000/Homegw/vodCallback" />
+	    <task_params>
+		    <common_params>
+				<param name="src"             value="./1.wmv"      />
+				<param name="dst"             value="./2.mp4"      />
+			</common_params>
+			<input path="rtsp%3A%2F%2F115.28.143.169%3A554%2Fdevice%3Fcontentid%3D030001010500000802%3A1%26sessionid%3D3994df71158f2a1d3037%26timestamp%3D20140108225800%26timeout%3D30%26encrypt%3Dnul">
+				<param name="rtsp_transport"  value="tcp"         />
+			</input>
+			<output path="/home/update/030001010500000802.mp4">
+			    <param name="vcodec"          value="copy"          />
+				
+				<param name="t"               value="30"          />
+			</output>
+		</task_params>
+    </task>
+</req>
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<resp version="1.0" err_code="0" err_msg="success">
+    <task taskid="0123456789" command="start" /> <!-- command:start,stop,update -->
+</resp>

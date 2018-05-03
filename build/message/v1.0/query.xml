@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<req version="1.0">
+    <task taskid="0123456789" command="start"> <!-- command:start,stop,update -->
+	    <report interval="0" url="http://192.168.1.0:8080/report" />
+	    <task_params>
+		    <params name="common">
+				<param n="src"             v="./1.wmv"      />
+				<param n="dst"             v="./2.mp4"      />
+			</params>
+			<params name="video">
+				<param n="name"            v="h264"         />
+				<param n="profile"         v="high_profile" />
+				<param n="level"           v="51"           />
+				<param n="fastmode"        v="2"            />
+				<param n="width"           v="-1"           />
+				<param n="height"          v="720"          />
+				<param n="bitrate"         v="1200"         />
+				<param n="bitratectrl"     v="0"            />
+				<param n="framerate"       v="-1"           />
+				<param n="keyframerate"    v="1"            />
+				<param n="referenceframes" v="3"            />
+				<param n="bframes"         v="3"            />
+				<param n="multithreads"    v="4"            />
+			</params>
+			<params name="audio">
+				<param n="name"            v="aac"          />
+				<param n="samplerate"      v="-1"           />
+				<param n="channels"        v="1"            />
+				<param n="bitrate"         v="32"           />
+			</params>
+		</task_params>
+    </task>
+</req>

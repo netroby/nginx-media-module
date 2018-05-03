@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<report version="1.0">
+    <task taskid="0123456789" status="start"> <!-- status:start,running,stop -->
+	    <stat_info>
+		    <stat name="total_time" unit="second" value="30" />
+			<stat name="input_packets" unit="packets" value="2000" />
+			<stat name="ouput_packets" unit="packets" value="2000" />
+			<stat name="total_frames" unit="frames" value="1000" />
+			<stat name="dup_frames" unit="frames" value="200" />
+			<stat name="drop_frames" unit="frames" value="200" />
+			<stat name="bitrate" unit="kbps" value="1024" />
+			<stat name="total_size" unit="KB" value="30000" />
+            <stat name="video_size" unit="KB" value="27000" />
+			<stat name="audio_size" unit="KB" value="3000" />
+			<stat name="extra_size" unit="KB" value="0" />
+			<stat name="other_size" unit="KB" value="0" />
+			<stat name="subtitle_size" unit="KB" value="0" />
+			<stat name="data_size" unit="KB" value="0" />
+		</stat_info>
+	    <task_params>
+            <input path="rtsp%3A%2F%2F115.28.143.169%3A554%2Fdevice%3Fcontentid%3D030001010500000802%3A1%26sessionid%3D3994df71158f2a1d3037%26timestamp%3D20140108225800%26timeout%3D30%26encrypt%3Dnul">
+                <param name="rtsp_transport" value="tcp"/>
+            </input>
+            <output path="/home/update/030001010500000802.mp4">
+                <param name="vcodec" value="copy"/>
+                <param name="t" value="30"/>
+            </output>
+       </task_params>
+    </task>
+</report>

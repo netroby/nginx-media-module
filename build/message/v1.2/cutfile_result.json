@@ -1,0 +1,20 @@
+[
+    {
+        "person": "xxxxxxxxxxxxxx1",
+        "video": "/allcam/schoolxxx/xxxxx1.mp4",
+        "thumbnail": "/allcam/schoolxxx/xxxxx1.jpeg",
+        "duration": "300"
+    },
+    {
+        "person": "xxxxxxxxxxxxxx2",
+        "video": "/allcam/schoolxxx/xxxxx2.mp4",
+        "thumbnail": "/allcam/schoolxxx/xxxxx2.jpeg",
+        "duration": "600"
+    },
+    {
+        "person": "xxxxxxxxxxxxxx3",
+        "video": "/allcam/schoolxxx/xxxxx3.mp4",
+        "thumbnail": "/allcam/schoolxxx/xxxxx3.jpeg",
+        "duration": "300"
+    }
+]
