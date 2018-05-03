@@ -523,7 +523,7 @@ rebuild_engine_module()
 
     ###wget the nginx
     cd ${THIRD_ROOT}
-    module_pack="nginx-1.10.2.tar.gz"
+    module_pack="nginx-1.14.0.tar.gz"
     if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
         echo "start get the nginx package from server\n"
         if [ ! -x "`which wget 2>/dev/null`" ]; then
@@ -604,10 +604,128 @@ rebuild_engine_module()
        echo "make the nginx fail!\n"
        return 1
     fi
-    cp ${SCRIPT_ROOT}/run ${PREFIX_ROOT}/sbin
-    chmod +x ${PREFIX_ROOT}/sbin/run
+    cp ${SCRIPT_ROOT}/start ${PREFIX_ROOT}/sbin
+    cp ${SCRIPT_ROOT}/restart ${PREFIX_ROOT}/sbin
+    cp ${SCRIPT_ROOT}/stop ${PREFIX_ROOT}/sbin
+    chmod +x ${PREFIX_ROOT}/sbin/start
+    chmod +x ${PREFIX_ROOT}/sbin/restart
+    chmod +x ${PREFIX_ROOT}/sbin/stop
     cp ${SCRIPT_ROOT}/nginx.conf ${PREFIX_ROOT}/conf
     echo "make the nginx success!\n"
+    cd ${ALLMEDIA_ROOT}
+    return 0
+}
+
+
+build_allmedia_module()
+{
+    cd ${THIRD_ROOT}/allmedia*
+    
+    make&&make install
+    
+    if [ 0 -ne ${?} ]; then
+       echo "make the allmedia fail!\n"
+       return 1
+    fi
+    echo "make the allmedia success!\n"
+    return 0
+}
+
+rebuild_allmedia_module()
+{
+
+    ###wget the allmedia
+    cd ${THIRD_ROOT}
+    module_pack="allmedia.zip"
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the allmedia package from server\n"
+        if [ ! -x "`which wget 2>/dev/null`" ]; then
+            echo "Need to install wget."
+            return 1
+        fi
+        wget https://github.com/H-kernel/allmedia/archive/master.zip -O ${module_pack}
+    fi
+    unzip -o ${module_pack}
+    
+    
+    basic_opt=" --prefix=${PREFIX_ROOT} ${WITHDEBUG} 
+                --sbin-path=sbin/allmedia
+                --with-threads 
+                --with-file-aio 
+                --with-ipv6
+                --with-http_ssl_module 
+                --with-http_realip_module 
+                --with-http_addition_module 
+                --with-http_sub_module 
+                --with-http_dav_module 
+                --with-http_flv_module 
+                --with-http_mp4_module 
+                --with-http_gunzip_module 
+                --with-http_gzip_static_module 
+                --with-http_random_index_module 
+                --with-http_secure_link_module 
+                --with-http_stub_status_module 
+                --with-http_auth_request_module 
+                --with-mail 
+                --with-mail_ssl_module 
+                --with-cc-opt=-O3 "
+                
+    
+    third_opt=""
+    cd ${THIRD_ROOT}/pcre*
+    if [ 0 -eq ${?} ]; then
+        third_opt="${third_opt} 
+                    --with-pcre=`pwd`"
+    fi
+    cd ${THIRD_ROOT}/zlib*
+    if [ 0 -eq ${?} ]; then
+        third_opt="${third_opt}
+                    --with-zlib=`pwd`"
+    fi
+    cd ${THIRD_ROOT}/openssl*
+    if [ 0 -eq ${?} ]; then
+        third_opt="${third_opt} 
+                    --with-openssl=`pwd`"
+    fi
+
+    
+    module_opt="" 
+    cd ${ALLMEDIA_ROOT}
+    if [ 0 -eq ${?} ]; then
+        module_opt="${module_opt} 
+                     --add-module=`pwd`"
+        LD_LIBRARY_PATH=${EXTEND_ROOT}/lib
+        LIBRARY_PATH=${EXTEND_ROOT}/lib
+        C_INCLUDE_PATH=${EXTEND_ROOT}/include
+        export LD_LIBRARY_PATH LIBRARY_PATH C_INCLUDE_PATH
+    fi
+        
+    all_opt="${basic_opt} ${third_opt} ${module_opt}"
+    
+    echo "all optiont info:\n ${all_opt}"
+    
+    cd ${THIRD_ROOT}/allmedia*
+    ./configure ${all_opt} 
+
+    if [ 0 -ne ${?} ]; then
+       echo "configure the allmedia fail!\n"
+       return 1
+    fi
+    
+    make&&make install
+    
+    if [ 0 -ne ${?} ]; then
+       echo "make the allmedia fail!\n"
+       return 1
+    fi
+    cp ${SCRIPT_ROOT}/start ${PREFIX_ROOT}/sbin
+    cp ${SCRIPT_ROOT}/restart ${PREFIX_ROOT}/sbin
+    cp ${SCRIPT_ROOT}/stop ${PREFIX_ROOT}/sbin
+    chmod +x ${PREFIX_ROOT}/sbin/start
+    chmod +x ${PREFIX_ROOT}/sbin/restart
+    chmod +x ${PREFIX_ROOT}/sbin/stop
+    cp ${SCRIPT_ROOT}/allmedia.conf ${PREFIX_ROOT}/conf
+    echo "make the allmedia success!\n"
     cd ${ALLMEDIA_ROOT}
     return 0
 }
@@ -656,6 +774,10 @@ setup()
     if [ 0 -ne ${?} ]; then
         return
     fi
+    rebuild_allmedia_module
+    if [ 0 -ne ${?} ]; then
+        return
+    fi
     echo "make the all modules success!\n"
     cd ${ALLMEDIA_ROOT}
 }
@@ -669,6 +791,17 @@ all_engine_func()
         
         TEXT[2]="build the engine module"
         FUNC[2]="build_engine_module"
+}
+
+all_media_func()
+{
+        TITLE="Setup the allmedia module"
+
+        TEXT[1]="rebuild the allmedia module"
+        FUNC[1]="rebuild_allmedia_module"
+        
+        TEXT[2]="build the allmedia module"
+        FUNC[2]="build_allmedia_module"
 }
 
 all_modules_func()
@@ -699,6 +832,7 @@ all_func()
 STEPS[1]="all_func"
 STEPS[2]="all_modules_func"
 STEPS[3]="all_engine_func"
+STEPS[4]="all_media_func"
 
 QUIT=0
 

@@ -1,6 +1,0 @@
-#!/bin/sh
-
-curpath=`pwd`
-runpath=$(dirname $(pwd))
-
-./nginx -p $runpath -c $runpath/conf/nginx.conf 

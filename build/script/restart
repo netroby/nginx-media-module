@@ -1,0 +1,13 @@
+#!/bin/sh
+
+curpath=`pwd`
+runpath=$(dirname $(pwd))
+
+#./allmedia -s reload -p $runpath -c $runpath/conf/allmedia.conf 
+if [ ! -f "$curpath/nginx" ];then
+    ./nginx -s reload
+fi
+
+if [ ! -f "$curpath/allmedia" ];then
+    ./allmedia -s reload
+fi
