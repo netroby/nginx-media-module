@@ -759,7 +759,7 @@ package_all()
     tar -zcvf allmedia.tar.gz allmedia/
     echo "package all success!\n"
 }
-setup()
+build_nginx_media()
 {
         
     build_extend_modules
@@ -771,6 +771,20 @@ setup()
         return
     fi
     rebuild_engine_module
+    if [ 0 -ne ${?} ]; then
+        return
+    fi
+    echo "make the all modules success!\n"
+    cd ${ALLMEDIA_ROOT}
+}
+build_all_media()
+{
+        
+    build_extend_modules
+    if [ 0 -ne ${?} ]; then
+        return
+    fi 
+    build_mk_module
     if [ 0 -ne ${?} ]; then
         return
     fi
@@ -820,14 +834,17 @@ all_func()
 {
         TITLE="build module  "
 
-        TEXT[1]="build  module"
-        FUNC[1]="setup"
-            
-        TEXT[2]="package module"
-        FUNC[2]="package_all"
+        TEXT[1]="build nginx media module"
+        FUNC[1]="build_nginx_media"
         
-        TEXT[3]="clean module"
-        FUNC[3]="clean_all"
+        TEXT[2]="build allmedia module"
+        FUNC[2]="build_all_media"
+            
+        TEXT[3]="package module"
+        FUNC[3]="package_all"
+        
+        TEXT[4]="clean module"
+        FUNC[4]="clean_all"
 }
 STEPS[1]="all_func"
 STEPS[2]="all_modules_func"
