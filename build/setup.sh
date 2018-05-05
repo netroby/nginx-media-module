@@ -14,8 +14,8 @@ echo "--------------------------------------------------------------------------
 echo " ALLMEDIA_ROOT exported as ${ALLMEDIA_ROOT}"
 echo "------------------------------------------------------------------------------"
 
-WITHDEBUG="--with-debug"
-#WITHDEBUG=""
+#WITHDEBUG="--with-debug"
+WITHDEBUG=""
 #NGX_LINK="--add-dynamic-module"
 NGX_LINK="--add-module"
 #
