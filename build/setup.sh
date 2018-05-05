@@ -26,6 +26,26 @@ quit()
     QUIT=$1
 }
 
+download_3rd()
+{
+    if [ ! -f ${THIRD_ROOT}/3rd.list ]; then
+        echo "there is no 3rd package list\n"
+        return 1
+    fi
+    cat ${THIRD_ROOT}/3rd.list|while read LINE
+    do
+        name=`echo "${LINE}"|awk -F '|' '{print $1}'`
+        url=`echo "${LINE}"|awk -F '|' '{print $2}'`
+        package=`echo "${LINE}"|awk -F '|' '{print $3}'`
+        if [ ! -f ${THIRD_ROOT}/${package} ]; then
+            echo "begin:download :${name}..................."
+            wget ${url}?raw=true -O ${THIRD_ROOT}/${package}
+            echo "end:download :${name}....................."
+        fi     
+    done
+    return 0
+}
+
 build_libxml2()
 {
     module_pack="libxml2-2.9.7.tar.gz"
@@ -422,6 +442,10 @@ build_oss_sdk_module()
 
 build_extend_modules()
 {
+    download_3rd
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
     build_bzip2
     if [ 0 -ne ${?} ]; then
         return 1
