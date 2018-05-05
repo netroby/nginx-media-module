@@ -615,6 +615,7 @@ rebuild_engine_module()
     echo "all optiont info:\n ${all_opt}"
     
     cd ${THIRD_ROOT}/nginx-1.*
+    chmod +x configure
     ./configure ${all_opt} 
 
     if [ 0 -ne ${?} ]; then
@@ -729,6 +730,7 @@ rebuild_allmedia_module()
     echo "all optiont info:\n ${all_opt}"
     
     cd ${THIRD_ROOT}/allmedia*
+    chmod +x configure
     ./configure ${all_opt} 
 
     if [ 0 -ne ${?} ]; then

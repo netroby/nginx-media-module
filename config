@@ -159,7 +159,7 @@ ALLMEDIA_CORE_MODULES="   ngx_http_client_module                                
                           ngx_rtmp_log_module                                          \
                           ngx_rtmp_limit_module                                        \
                           ngx_rtmp_hls_module                                          \
-                          ngx_rtmp_dash_module                                         \                          
+                          ngx_rtmp_dash_module                                                                   
                         "                                                         
                                                                                   
 ALLMEDIA_ADDON_INCS="$ngx_addon_dir                                                    \

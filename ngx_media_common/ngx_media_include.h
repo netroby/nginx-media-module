@@ -167,6 +167,9 @@ struct ngx_media_task_s {
 
     ngx_pool_t                     *pool;
     ngx_log_t                      *log;
+
+    ngx_resolver_t                 *resolver;
+    ngx_msec_t                      resolver_timeout;
     ngx_thread_mutex_t              task_mtx;
     ngx_event_t                     time_event;
     ngx_list_t                     *workers;       /* worker list of the task,(ngx_media_worker_ctx_t)*/

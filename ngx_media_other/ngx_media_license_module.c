@@ -103,7 +103,6 @@ ngx_media_license_mac(ngx_cycle_t *cycle,ngx_array_t* maclist)
     struct ifconf         stIfc;
     struct ifreq         *pIfr = NULL;
     struct ifreq          stArrayIfr[LICENSE_MAX_NETCARD_NUM];
-    struct sockaddr_in   *pAddr = NULL;
     ngx_uint_t            i = 0,j = 0;
     u_char                szMac[LICENSE_HOST_MAC_LEN];
     u_char                szBigMac[LICENSE_HOST_MAC_LEN];
@@ -150,7 +149,6 @@ ngx_media_license_mac(ngx_cycle_t *cycle,ngx_array_t* maclist)
             continue;
         }
 
-        pAddr = (struct sockaddr_in *) (void*)&pIfr->ifr_hwaddr;
 
         if (0 == strncmp(pIfr->ifr_name, "lo", ngx_strlen("lo")))
         {

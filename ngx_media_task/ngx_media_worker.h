@@ -61,6 +61,8 @@ typedef struct {
     u_char**                        paramlist;
     ngx_pool_t                     *pool;
     ngx_log_t                      *log;
+    ngx_resolver_t                 *resolver;
+    ngx_msec_t                      resolver_timeout;
     ngx_thread_mutex_t              work_mtx;
     ngx_media_worker_t             *worker;
     ngx_uint_t                      priv_data_size;/* Size of private data .*/

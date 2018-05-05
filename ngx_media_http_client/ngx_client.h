@@ -50,6 +50,11 @@ typedef struct {
                                 /* ngx_connection_log_error_e */
     unsigned                    log_error:3;
 
+    /* resolver */
+
+    ngx_resolver_t             *resolver;
+    ngx_msec_t                  resolver_timeout;
+
     /* callback */
     ngx_client_connect_pt       connected;  /* connect or reconnect successd */
     ngx_client_recv_pt          recv;       /* recv msg from peer */
@@ -84,7 +89,8 @@ struct ngx_client_session_s {
 };
 
 ngx_client_init_t *ngx_client_init(ngx_str_t *peer, ngx_str_t *local,
-        ngx_flag_t udp, ngx_log_t *log);
+                                   ngx_flag_t udp, ngx_log_t *log,
+                                   ngx_resolver_t *resolver, ngx_msec_t resolver_timeout);
 
 void ngx_client_set_handler(ngx_client_session_t *s);
 

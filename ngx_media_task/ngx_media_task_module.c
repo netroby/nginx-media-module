@@ -31,7 +31,7 @@
 
 
 #define NGX_HTTP_TRANS_TASK_MAX     1000
-#define NGX_HTTP_TRANS_WOEKER_MAX   8
+#define NGX_HTTP_TRANS_WOEKER_MAX   32
 #define NGX_HTTP_TRANS_PARAM_MAX    256
 #define NGX_HTTP_STAT_HTML_ROW_MAX  4096
 #define NGX_HTTP_TRANS_SENDRECV_MAX 5
@@ -69,6 +69,8 @@ typedef struct {
     ngx_event_t                     static_task_timer;
     ngx_pool_t                     *pool;
     ngx_log_t                      *log;
+    ngx_resolver_t                 *resolver;
+    ngx_msec_t                      resolver_timeout;
 } ngx_media_main_conf_t;
 
 
@@ -85,6 +87,7 @@ typedef struct {
 
 
 /*************************video task init *****************************/
+static ngx_int_t ngx_media_task_postconfiguration(ngx_conf_t *cf);
 static char*     ngx_media_task_init(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static void      ngx_media_task_static_init_timer(ngx_media_main_conf_t* conf);
 static ngx_int_t ngx_media_task_init_process(ngx_cycle_t *cycle);
@@ -153,7 +156,7 @@ static ngx_command_t  ngx_media_task_commands[] = {
 
 static ngx_http_module_t  ngx_media_task_module_ctx = {
     NULL,                                   /* preconfiguration */
-    NULL,                                   /* postconfiguration */
+    ngx_media_task_postconfiguration,       /* postconfiguration */
     ngx_media_task_create_main_conf,        /* create main configuration */
     NULL,                                   /* init main configuration */
     NULL,                                   /* create server configuration */
@@ -183,11 +186,6 @@ static ngx_int_t
 ngx_media_task_handler(ngx_http_request_t *r)
 {
     ngx_int_t    rc;
-    ngx_media_main_conf_t* trans_conf;
-
-
-    trans_conf = ngx_http_get_module_main_conf(r, ngx_media_task_module);
-
     ngx_uint_t count = ngx_media_task_get_cur_count();
     ngx_uint_t licesen_task =ngx_media_license_task_count();
 
@@ -211,6 +209,30 @@ ngx_media_task_handler(ngx_http_request_t *r)
     return NGX_DONE;
 }
 
+static ngx_int_t
+ngx_media_task_postconfiguration(ngx_conf_t *cf)
+{
+    ngx_uint_t                   s;
+    ngx_media_main_conf_t       *mmcf;
+    ngx_http_core_loc_conf_t    *clcf;
+    ngx_http_core_srv_conf_t   **cscfp;
+    ngx_http_core_main_conf_t   *cmcf;
+
+    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+    cscfp = cmcf->servers.elts;
+
+    for (s = 0; s < cmcf->servers.nelts; s++) {
+
+        mmcf = cscfp[s]->ctx->srv_conf[ngx_media_task_module.ctx_index];
+
+        clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
+
+        mmcf->resolver         = clcf->resolver;
+        mmcf->resolver_timeout = clcf->resolver_timeout;
+    }
+
+    return NGX_OK;
+}
 
 static void *
 ngx_media_task_create_main_conf(ngx_conf_t *cf)
@@ -230,6 +252,8 @@ ngx_media_task_create_main_conf(ngx_conf_t *cf)
     ngx_str_null(&conf->static_task);
     conf->log           = cf->log;
     conf->pool          = cf->pool;
+    conf->resolver      = NULL;
+    conf->resolver_timeout = NGX_CONF_UNSET_MSEC;
 
     return conf;
 }
@@ -374,7 +398,7 @@ ngx_media_task_push_args(ngx_media_task_t *task,u_char* key,u_char* value)
 static ngx_media_task_t*
 ngx_media_task_create_task(ngx_media_main_conf_t *conf)
 {
-    ngx_media_task_t         *task = NULL;
+    ngx_media_task_t              *task = NULL;
     ngx_pool_t                    *pool = NULL;
     ngx_uint_t                     lens = 0;
 
@@ -392,8 +416,10 @@ ngx_media_task_create_task(ngx_media_main_conf_t *conf)
         return NULL;
     }
     ngx_memzero(task, lens);
-    task->pool = pool;
-    task->log  = video_task_ctx.log;
+    task->pool     = pool;
+    task->log      = video_task_ctx.log;
+    task->resolver = conf->resolver;
+    task->resolver_timeout = conf->resolver_timeout;
 
     if (ngx_thread_mutex_create(&task->task_mtx, task->log) != NGX_OK) {
         ngx_log_error(NGX_LOG_EMERG, video_task_ctx.log, 0, "create task,create the mutex fail!");
@@ -1277,7 +1303,7 @@ ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
     xmlNodePtr                   paramSNode = NULL;
     xmlNodePtr                   workerNode = NULL;
     xmlChar*                     attr_value = NULL;
-    ngx_media_worker_ctx_t *pWorker    = NULL;
+    ngx_media_worker_ctx_t      *pWorker    = NULL;
     u_char                      *last       = NULL;
 
     workerNode  = curNode->children;
@@ -1293,8 +1319,10 @@ ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
             return NGX_ERROR;
         }
 
-        pWorker->pool = task->pool;
-        pWorker->log  = task->log;
+        pWorker->pool              = task->pool;
+        pWorker->log               = task->log;
+        pWorker->resolver          = task->resolver;
+        pWorker->resolver_timeout  = task->resolver_timeout;
 
         ngx_str_null(&pWorker->wokerid);
         pWorker->type   = ngx_media_worker_invalid;
@@ -1369,9 +1397,9 @@ ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc)
     xmlNodePtr                   curNode    = NULL;
     xmlChar                     *attr_value = NULL;
     u_char                      *last       = NULL;
-    ngx_media_task_t       *task       = NULL;
-    ngx_media_worker_ctx_t *worker     = NULL;
-    ngx_media_worker_ctx_t *array      = NULL;
+    ngx_media_task_t            *task       = NULL;
+    ngx_media_worker_ctx_t      *worker     = NULL;
+    ngx_media_worker_ctx_t      *array      = NULL;
     ngx_list_part_t             *part       = NULL;
     xmlChar                     *xmlbuff    = NULL;
     int                          buffersize = 0;
@@ -1915,7 +1943,8 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
         {
             worker = &array[loop];
             if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
-                if(ngx_media_worker_status_stop != worker->status) {
+                if((ngx_media_worker_status_end != worker->status)
+                    &&(ngx_media_worker_status_break != worker->status)){
                     /* try to start the next worker */
                     status = ngx_media_worker_status_running;
                 }

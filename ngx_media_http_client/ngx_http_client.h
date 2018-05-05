@@ -10,7 +10,6 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include "ngx_client.h"
-#include "ngx_toolkit_misc.h"
 
 
 #define NGX_HTTP_CLIENT_GET         0
@@ -90,7 +89,7 @@ typedef struct {
     /* Request */
     ngx_keyval_t                   *headers;
 
-    ngx_request_url_t               url;
+    ngx_url_t                       url;
 
     /* Response */
     ngx_http_status_t               status;
@@ -121,7 +120,7 @@ ngx_http_request_t *ngx_http_client_create_request(ngx_str_t *request_url,
         ngx_http_client_handler_pt write_handler);
 
 ngx_int_t ngx_http_client_send(ngx_http_request_t *hcr, ngx_client_session_t *s,
-        void *request, ngx_log_t *log);
+        void *request, ngx_log_t *log,ngx_resolver_t *resolver, ngx_msec_t resolver_timeout);
 
 ngx_uint_t ngx_http_client_http_version(ngx_http_request_t *hcr);
 

@@ -140,7 +140,7 @@ int ngx_digest_client_parse(ngx_digest_t *digest, const char *digest_string);
  *
  * Returns the number of bytes in the result string. -1 on failure.
  */
-size_t ngx_digest_client_generate_header(ngx_digest_t *digest, char *result, size_t max_length);
+int ngx_digest_client_generate_header(ngx_digest_t *digest, char *result, int max_length);
 
 /******************************Server****************************************/
 /**

@@ -738,13 +738,13 @@ ngx_digest_client_parse(ngx_digest_t *digest, const char *digest_string)
  *
  * Returns the number of bytes in the result string.
  */
-size_t
-ngx_digest_client_generate_header(ngx_digest_t *digest, char *result, size_t max_length)
+int
+ngx_digest_client_generate_header(ngx_digest_t *digest, char *result, int max_length)
 {
 	ngx_digest_s *dig = (ngx_digest_s *) digest;
 	char hash_a1[52], hash_a2[52], hash_res[52];
 	char *qop_value, *algorithm_value, *method_value;
-	size_t result_size; /* The size of the result string */
+	int result_size; /* The size of the result string */
 	int sz;
 
 	/* Check length of char attributes to prevent buffer overflow */
@@ -818,7 +818,7 @@ ngx_digest_client_generate_header(ngx_digest_t *digest, char *result, size_t max
     	    dig->uri,\
     	    hash_res);
     }
-	if (result_size == -1 || result_size == max_length) {
+	if (result_size < 0 || result_size == max_length) {
 		return -1;
 	}
 
@@ -917,7 +917,7 @@ ngx_digest_server_generate_header(ngx_digest_t *digest, char *result, size_t max
 
 	/* Generate the minimum digest header string */
 	result_size = snprintf(result, max_length, "Digest realm=\"%s\"", dig->realm);
-	if (result_size == -1 || result_size == max_length) {
+	if (result_size == 0 || result_size == max_length) {
 		return -1;
 	}
 

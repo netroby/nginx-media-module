@@ -1488,7 +1488,6 @@ ngx_rtmp_record_ff_open_audio(ngx_rtmp_session_t *s,AVFormatContext *oc, AVCodec
                               ngx_rtmp_record_ff_stream_t *ost, AVDictionary *opt_arg)
 {
     AVCodecContext *c;
-    int nb_samples;
     int ret;
     AVDictionary *opt = NULL;
     c = ost->enc;
@@ -1501,10 +1500,12 @@ ngx_rtmp_record_ff_open_audio(ngx_rtmp_session_t *s,AVFormatContext *oc, AVCodec
                         "Could not open audio codec: %s.", av_err2str(ret));
         return NGX_ERROR;
     }
+    /*
     if (c->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
         nb_samples = 10000;
     else
         nb_samples = c->frame_size;
+        */
 
     /* copy the stream parameters to the muxer */
     ret = avcodec_parameters_from_context(ost->st->codecpar, c);
@@ -1597,7 +1598,6 @@ ngx_rtmp_record_ff_write_audio_frame(ngx_rtmp_session_t *s,
     uint64_t                        pts;
     size_t                          bsize;
 
-    u_char                         *p;
     ngx_uint_t                      size;
 
     codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
@@ -1636,7 +1636,6 @@ ngx_rtmp_record_ff_write_audio_frame(ngx_rtmp_session_t *s,
         return NGX_OK;
     }
 
-    p = b->last;
     b->last += 5;
 
     /* copy payload */
@@ -1687,7 +1686,6 @@ ngx_rtmp_record_ff_write_video_frame(ngx_rtmp_session_t *s,
 
     uint32_t                        cts;
     ngx_uint_t                      nal_bytes;
-    ngx_int_t                       aud_sent, sps_pps_sent;
 
     out = rctx->ffctx->frame_buf;
     out->pos = out->start;
@@ -1739,8 +1737,7 @@ ngx_rtmp_record_ff_write_video_frame(ngx_rtmp_session_t *s,
 
 
     nal_bytes = codec_ctx->avc_nal_bytes;
-    aud_sent = 0;
-    sps_pps_sent = 0;
+
 
     while (in) {
         if (ngx_rtmp_record_ff_copy(s, &rlen, &p, nal_bytes, &in) != NGX_OK) {
@@ -2164,13 +2161,11 @@ static ngx_int_t
 ngx_rtmp_record_postconfiguration(ngx_conf_t *cf)
 {
     ngx_rtmp_core_main_conf_t          *cmcf;
-    ngx_rtmp_record_app_conf_t         *racf;
     ngx_rtmp_handler_pt                *h;
 
     ngx_rtmp_record_done = ngx_rtmp_record_done_init;
 
     cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
-    racf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_record_module);
 
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_AUDIO]);

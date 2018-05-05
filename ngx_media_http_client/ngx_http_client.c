@@ -4,7 +4,7 @@
 
 
 #include "ngx_http_client.h"
-#include "ngx_rbuf.h"
+#include "ngx_buf.h"
 
 
 static void *ngx_http_client_module_create_conf(ngx_cycle_t *cycle);
@@ -358,7 +358,7 @@ ngx_http_client_host_len(ngx_http_request_t *r, ngx_str_t *name,
         return 0;
     }
 
-    len = name->len + sizeof(": ") - 1 + ctx->url.host_with_port.len
+    len = name->len + sizeof(": ") - 1 + ctx->url.port_text.len
         + sizeof(CRLF) - 1;
 
     return len;
@@ -381,8 +381,8 @@ ngx_http_client_host_set(ngx_http_request_t *r, ngx_str_t *name,
 
     b->last = ngx_cpymem(b->last, name->data, name->len);
     *b->last++ = ':'; *b->last++ = ' ';
-    b->last = ngx_cpymem(b->last, ctx->url.host_with_port.data,
-                         ctx->url.host_with_port.len);
+    b->last = ngx_cpymem(b->last, ctx->url.port_text.data,
+                         ctx->url.port_text.len);
     *b->last++ = CR; *b->last++ = LF;
 }
 
@@ -1035,16 +1035,9 @@ ngx_http_client_create_request_buf(ngx_client_session_t *s)
 
     /* path + args */
     ++len; /* "/" */
-    if (ctx->url.path.len) {
+    if (ctx->url.url.len) {
         /* "path" */
-        len += ctx->url.path.len + 2 * ngx_escape_uri(NULL, ctx->url.path.data,
-               ctx->url.path.len, NGX_ESCAPE_URI);
-    }
-
-    if (ctx->url.args.len) {
-        /* "?args" */
-        len += ctx->url.args.len + 2 * ngx_escape_uri(NULL, ctx->url.args.data,
-               ctx->url.args.len, NGX_ESCAPE_URI);
+        len += ctx->url.url.len;
     }
     ++len; /* " " */
 
@@ -1080,15 +1073,9 @@ ngx_http_client_create_request_buf(ngx_client_session_t *s)
 
     /* path + args */
     *b->last++ = '/';
-    if (ctx->url.path.len) {
-        b->last = (u_char *) ngx_escape_uri(b->last, ctx->url.path.data,
-                             ctx->url.path.len, NGX_ESCAPE_URI);
-    }
-
-    if (ctx->url.args.len) {
-        *b->last++ = '?';
-        b->last = (u_char *) ngx_escape_uri(b->last, ctx->url.args.data,
-                             ctx->url.args.len, NGX_ESCAPE_URI);
+    if (ctx->url.url.len) {
+        b->last = (u_char *) ngx_escape_uri(b->last, ctx->url.url.data,
+                             ctx->url.url.len, NGX_ESCAPE_URI);
     }
     *b->last++ = ' ';
 
@@ -1185,7 +1172,13 @@ ngx_http_client_body_read_filter(ngx_http_request_t *hcr, ngx_chain_t **in,
     }
 
     while (1) {
-        *cl = ngx_get_chainbuf(size, 1);
+        *cl = ngx_alloc_chain_link(hcr->pool);
+        (*cl)->buf = ngx_calloc_buf(hcr->pool);
+        if ((*cl)->buf == NULL) {
+            return NGX_ERROR;
+        }
+
+        (*cl)->next = NULL;
         if (hcr->connection->buffer->last != hcr->connection->buffer->pos) {
             (*cl)->buf->pos = hcr->connection->buffer->pos;
             (*cl)->buf->last = hcr->connection->buffer->last;
@@ -1208,7 +1201,6 @@ ngx_http_client_body_read_filter(ngx_http_request_t *hcr, ngx_chain_t **in,
         }
 
         if (n == NGX_AGAIN) {
-            ngx_put_chainbuf(*cl);
             (*cl) = NULL;
 
             if (ngx_handle_read_event(rev, 0) != NGX_OK) {
@@ -1240,7 +1232,7 @@ ngx_http_client_body_chunked_filter(ngx_http_request_t *hcr, ngx_chain_t **in,
         size_t size)
 {
     ngx_http_client_ctx_t      *ctx;
-    ngx_chain_t               **ll, *cl = NULL, *l;
+    ngx_chain_t               **ll, *cl = NULL;
     ngx_int_t                   rc;
     size_t                      len;
 
@@ -1275,7 +1267,13 @@ ngx_http_client_body_chunked_filter(ngx_http_request_t *hcr, ngx_chain_t **in,
 
             for (;;) {
                 if (*ll == NULL) {
-                    *ll = ngx_get_chainbuf(size, 1);
+                    *ll = ngx_alloc_chain_link(hcr->pool);
+                    (*ll)->buf = ngx_calloc_buf(hcr->pool);
+                    if ((*ll)->buf == NULL) {
+                        return NGX_ERROR;
+                    }
+
+                    (*ll)->next = NULL;
                 }
 
                 len = ngx_min(ctx->chunked.size, cl->buf->last
@@ -1305,9 +1303,7 @@ done:
                     rc, ctx->chunked.size, ctx->chunked.length);
 
             if (cl->buf->pos == cl->buf->last) {
-                l = cl;
                 cl = cl->next;
-                ngx_put_chainbuf(l);
 
                 if (cl == NULL) {
                     return NGX_OK;
@@ -1318,9 +1314,7 @@ done:
         }
 
         if (rc == NGX_AGAIN) {
-            l = cl;
             cl = cl->next;
-            ngx_put_chainbuf(l);
 
             if (cl == NULL) {
                 return NGX_AGAIN;
@@ -1400,7 +1394,7 @@ ngx_http_client_create_request(ngx_str_t *request_url, ngx_uint_t method,
     ctx->read_handler = read_handler;
     ctx->write_handler = write_handler;
 
-    rc = ngx_parse_request_url(&ctx->url, &r->request_line);
+    rc = ngx_parse_url(ctx->session->pool,&ctx->url);
     if (rc == NGX_ERROR) {
         goto destroy;
     }
@@ -1417,7 +1411,7 @@ destroy:
 
 ngx_int_t
 ngx_http_client_send(ngx_http_request_t *hcr, ngx_client_session_t *s,
-        void *request, ngx_log_t *log)
+        void *request, ngx_log_t *log,ngx_resolver_t *resolver, ngx_msec_t resolver_timeout)
 {
     ngx_client_init_t          *ci;
     ngx_http_client_ctx_t      *ctx;
@@ -1430,8 +1424,8 @@ ngx_http_client_send(ngx_http_request_t *hcr, ngx_client_session_t *s,
     ctx = hcr->ctx[0];
 
     if (s == NULL) {
-        ci = ngx_client_init(&ctx->url.host, NULL, 0, log);
-        ci->port = ngx_request_port(&ctx->url.scheme, &ctx->url.port);
+        ci = ngx_client_init(&ctx->url.host, NULL, 0, log,resolver,resolver_timeout);
+        ci->port = ctx->url.port;
 
         ci->connected = ngx_http_client_send_header;
         ci->closed = ngx_http_client_close_handler;
@@ -1441,7 +1435,7 @@ ngx_http_client_send(ngx_http_request_t *hcr, ngx_client_session_t *s,
             return NGX_ERROR;
         }
 
-        s->data = hcr;
+        s->data      = hcr;
         ctx->session = s;
         ctx->request = request;
     } else {
@@ -1450,7 +1444,7 @@ ngx_http_client_send(ngx_http_request_t *hcr, ngx_client_session_t *s,
         ci->connected = ngx_http_client_send_header;
         ci->closed = ngx_http_client_close_handler;
 
-        s->data = hcr;
+        s->data      = hcr;
         ctx->session = s;
         ctx->request = request;
         hcr->connection = s->connection;

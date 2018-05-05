@@ -5,8 +5,7 @@
 
 #include <ngx_event_connect.h>
 #include "ngx_client.h"
-#include "ngx_event_resolver.h"
-#include "ngx_dynamic_resolver.h"
+#include "ngx_resolver.h"
 
 
 #define NGX_CLIENT_DISCARD_BUFFER_SIZE  4096
@@ -306,26 +305,52 @@ failed:
     ngx_client_reconnect(s);
 }
 
+
 static void
-ngx_client_resolver_server(void *data, ngx_resolver_addr_t *addrs,
-        ngx_uint_t naddrs)
+ngx_client_resolve_handler(ngx_resolver_ctx_t *resolve)
 {
-    ngx_client_session_t       *s;
-    ngx_uint_t                  n;
+    ngx_client_session_t *s = resolve->data;
+    ngx_uint_t            n;
+#if (NGX_DEBUG)
+    ngx_uint_t i          = 0;
+#endif
 
-    s = data;
+    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, &s->ci->log, 0,
+                   "ngx client resolve handler");
 
-    if (naddrs == 0) {
-        ngx_log_error(NGX_LOG_ERR, &s->ci->log, ngx_errno,
-                "nginx client resolver failed");
-        ngx_client_reconnect(s);
+    if (resolve->state) {
+        ngx_log_error(NGX_LOG_ERR, &s->ci->log, 0,
+                      "%V could not be resolved (%i: %s)",
+                      &resolve->name, resolve->state,
+                      ngx_resolver_strerror(resolve->state));
+        ngx_resolve_name_done(resolve);
         return;
     }
 
-    n = ngx_random() % naddrs;
+#if (NGX_DEBUG)
+    {
+    u_char     text[NGX_SOCKADDR_STRLEN];
+    ngx_str_t  addr;
 
-    ngx_client_connect_server(data, addrs[n].sockaddr, addrs[n].socklen);
+    addr.data = text;
+
+    for (i = 0; i < resolve->naddrs; i++) {
+        addr.len = ngx_sock_ntop(resolve->addrs[i].sockaddr,
+                                 resolve->addrs[i].socklen,
+                                 text, NGX_SOCKADDR_STRLEN, 0);
+
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, &s->ci->log, 0,
+                       "name was resolved to %V", &addr);
+
+    }
+    }
+#endif
+
+    n = ngx_random() % resolve->naddrs;
+    ngx_client_connect_server(s, resolve->addrs[n].sockaddr,resolve->addrs[n].socklen);
+    ngx_resolve_name_done(resolve);
 }
+
 
 static ngx_client_session_t *
 ngx_client_create_session(ngx_client_init_t *ci, ngx_log_t *log)
@@ -386,6 +411,7 @@ static void
 ngx_client_reconnect_handler(ngx_event_t *ev)
 {
     ngx_client_session_t       *s;
+    ngx_resolver_ctx_t         *resolve, temp;
 
     s = ev->data;
 
@@ -395,19 +421,33 @@ ngx_client_reconnect_handler(ngx_event_t *ev)
         ngx_client_close_connection(s);
     }
 
-    if (s->ci->dynamic_resolver) {
-        ngx_dynamic_resolver_start_resolver(&s->ci->server,
-                ngx_client_connect_server, s);
-    } else {
-        ngx_event_resolver_start_resolver(&s->ci->server,
-                ngx_client_resolver_server, s);
+    temp.name = s->ci->server;
+
+    resolve = ngx_resolve_start(s->ci->resolver, &temp);
+    if (resolve == NULL) {
+        return;
+    }
+
+    if (resolve == NGX_NO_RESOLVER) {
+        ngx_log_error(NGX_LOG_WARN, &s->ci->log, 0,
+                      "no resolver defined to resolve %V", &s->ci->server);
+        return;
+    }
+
+    resolve->name    = s->ci->server;
+    resolve->handler = ngx_client_resolve_handler;
+    resolve->data    = s;
+    resolve->timeout = s->ci->resolver_timeout;
+
+    if (ngx_resolve_name(resolve) != NGX_OK) {
+        return;
     }
 }
 
 
 ngx_client_init_t *
 ngx_client_init(ngx_str_t *peer, ngx_str_t *local, ngx_flag_t udp,
-        ngx_log_t *log)
+        ngx_log_t *log,ngx_resolver_t *resolver, ngx_msec_t resolver_timeout)
 {
     ngx_client_init_t          *ci;
     ngx_pool_t                 *pool = NULL;
@@ -432,6 +472,8 @@ ngx_client_init(ngx_str_t *peer, ngx_str_t *local, ngx_flag_t udp,
     ci->pool = pool;
 
     ci->log = ngx_cycle->new_log;
+    ci->resolver = resolver;
+    ci->resolver_timeout = resolver_timeout;
 
     /* parse remote */
     last = peer->data + peer->len;
@@ -533,6 +575,7 @@ ngx_client_session_t *
 ngx_client_connect(ngx_client_init_t *ci, ngx_log_t *log)
 {
     ngx_client_session_t       *s;
+    ngx_resolver_ctx_t         *resolve, temp;
 
     /* create session */
     s = ngx_client_create_session(ci, log);
@@ -543,13 +586,26 @@ ngx_client_connect(ngx_client_init_t *ci, ngx_log_t *log)
     ngx_log_debug1(NGX_LOG_DEBUG_CORE, &ci->log, 0, "nginx client connect %V",
             &s->ci->server);
 
-    /* start connect */
-    if (s->ci->dynamic_resolver) {
-        ngx_dynamic_resolver_start_resolver(&s->ci->server,
-                ngx_client_connect_server, s);
-    } else {
-        ngx_event_resolver_start_resolver(&s->ci->server,
-                ngx_client_resolver_server, s);
+    temp.name = s->ci->server;
+
+    resolve = ngx_resolve_start(ci->resolver, &temp);
+    if (resolve == NULL) {
+        return NULL;
+    }
+
+    if (resolve == NGX_NO_RESOLVER) {
+        ngx_log_error(NGX_LOG_WARN, &ci->log, 0,
+                      "no resolver defined to resolve %V", &s->ci->server);
+        return NULL;
+    }
+
+    resolve->name    = s->ci->server;
+    resolve->handler = ngx_client_resolve_handler;
+    resolve->data    = s;
+    resolve->timeout = ci->resolver_timeout;
+
+    if (ngx_resolve_name(resolve) != NGX_OK) {
+        return NULL;
     }
 
     return s;

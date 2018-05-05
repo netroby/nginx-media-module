@@ -15,12 +15,12 @@
 #define MSS_WORK_MEDIA_TYPE_RECORD   "record"
 
 
-enum MSS_MEDIA_TYE
+typedef enum
 {
     MSS_MEDIA_TYE_LIVE    = 0,
     MSS_MEDIA_TYE_RECORD  = 1,
     MSS_MEDIA_TYE_MAX
-};
+}MSS_MEDIA_TYE;
 
 typedef enum NGX_MEDIA_WOKER_MSS_STATUS
 {
@@ -76,37 +76,7 @@ enum NGX_MEDIA_WORKER_MSS_HTTP_HEADER
     NGX_MEDIA_WORKER_MSS_HTTP_HEADER_MAX
 };
 
-
-static void
-ngx_media_worker_mss_unescape_uri(ngx_media_worker_ctx_t* ctx)
-{
-    ngx_int_t i        = 0;
-    u_char   *arg      = NULL;
-    u_char   *value    = NULL;
-    u_char   *unescape = NULL;
-
-    for(i = 0;i < ctx->nparamcount;i++) {
-
-        arg = ctx->paramlist[i];
-        if((0 != ngx_strncmp(arg,NGX_HTTP_VIDEO_ARG_MK_SRC,ngx_strlen(NGX_HTTP_VIDEO_ARG_MK_SRC)))
-            &&(0 != ngx_strncmp(arg,NGX_HTTP_VIDEO_ARG_MK_DST,ngx_strlen(NGX_HTTP_VIDEO_ARG_MK_DST)))) {
-            continue;
-        }
-        if((i + 1) >= ctx->nparamcount) {
-            continue;
-        }
-
-        value = ctx->paramlist[i+1];
-
-        ngx_uint_t lens  = ngx_strlen(value);
-        unescape = ngx_pcalloc(ctx->pool,lens+1);
-        u_char* pszDst = unescape;
-        ngx_unescape_uri(&pszDst,&value, lens, 0);
-        pszDst = '\0';
-        ctx->paramlist[i+1] = unescape;
-        ngx_pfree(ctx->pool,value);
-    }
-}
+static ngx_int_t      ngx_media_worker_mss_url_request(ngx_worker_mss_ctx_t *ctx);
 
 
 static void
@@ -145,9 +115,9 @@ ngx_media_worker_mss_args(ngx_worker_mss_ctx_t* mss_ctx,u_char* arg,u_char* valu
         }
     }
     else {
-        return NGX_ERROR;
+        return;
     }
-    return NGX_OK;
+    return ;
 }
 
 
@@ -156,7 +126,6 @@ ngx_media_worker_mss_parser_args(ngx_media_worker_ctx_t* ctx)
 {
     ngx_worker_mss_ctx_t* mss_ctx = (ngx_worker_mss_ctx_t*)ctx->priv_data;
 
-    ngx_int_t ret = NGX_OK;
     ngx_int_t i = 0;
 
     ngx_uint_t lens  = sizeof(u_char*)*(ctx->nparamcount + 4);
@@ -164,14 +133,14 @@ ngx_media_worker_mss_parser_args(ngx_media_worker_ctx_t* ctx)
     mss_ctx->mk_paramlist    = ngx_pcalloc(ctx->pool,lens);
     mss_ctx->mk_nparamcount  = 0;
 
-    mss_ctx->mk_paramlist[0] = "-rtsp_transport";
+    mss_ctx->mk_paramlist[0] = (u_char*)"-rtsp_transport";
     mss_ctx->mk_nparamcount++;
-    mss_ctx->mk_paramlist[1] = "tcp";
+    mss_ctx->mk_paramlist[1] = (u_char*)"tcp";
     mss_ctx->mk_nparamcount++;
 
-    mss_ctx->mk_paramlist[2] = "-src";
+    mss_ctx->mk_paramlist[2] = (u_char*)"-src";
     mss_ctx->mk_nparamcount++;
-    mss_ctx->mk_paramlist[3] = "tmp"; /* replace by the mms return rtsp url */
+    mss_ctx->mk_paramlist[3] = (u_char*)"tmp"; /* replace by the mms return rtsp url */
     mss_ctx->mk_nparamcount++;
 
     for(i = 0; i < ctx->nparamcount;i++) {
@@ -197,7 +166,7 @@ static void
 ngx_media_worker_mss_timer(ngx_event_t *ev)
 {
     int status = MK_TASK_STATUS_INIT;
-    ngx_worker_mk_ctx_t *worker_ctx = (ngx_worker_mk_ctx_t *)ev->data;
+    ngx_worker_mss_ctx_t *worker_ctx = (ngx_worker_mss_ctx_t *)ev->data;
     if(NULL == worker_ctx->watcher) {
         return;
     }
@@ -233,7 +202,7 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
 
     }
 
-    if(NGX_MEDIA_WOKER_MSS_STATUS_MK_RUN < worker_ctx->status {
+    if(NGX_MEDIA_WOKER_MSS_STATUS_MK_RUN < worker_ctx->status) {
         return;
     }
     ngx_add_timer(&worker_ctx->timer,NGX_HTTP_VIDEO_MSS_TIME);
@@ -244,7 +213,7 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
 {
     ngx_flag_t flag = 0;
     /* 1.parse the response */
-    cJSON root = cJSON_Parse(worker_ctx->mss_resp_msg.data);
+    cJSON* root = cJSON_Parse((char*)worker_ctx->mss_resp_msg.data);
     if (NULL == root) {
         ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message parser fail.");
         return;
@@ -271,7 +240,7 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
         u_char* last = ngx_cpymem(worker_ctx->mk_paramlist[3], url->valuestring,lens);
         *last = '\0';
         flag = 1;
-    }
+    }while(0);
     cJSON_Delete(root);
 
     if(!flag) {
@@ -327,7 +296,7 @@ ngx_media_worker_mss_recv_body(void *request, ngx_http_request_t *hcr)
             (*ll)->buf->last_buf = 1;
             ngx_media_worker_mss_start_media_kernel(worker_ctx);
         }
-    }while(false);
+    }while(0);
 
     ngx_http_client_finalize_request(hcr, 1);
     return;
@@ -361,12 +330,12 @@ ngx_media_worker_mss_recv(void *request, ngx_http_request_t *hcr)
             return;
         }
 
-        if (-1 == ngx_digest_is_digest(auth)) {
+        if (-1 == ngx_digest_is_digest((const char*)auth->data)) {
             ngx_log_error(NGX_LOG_ERR, worker_ctx->log, 0, "the WWW-Authenticate is not digest.");
             return;
         }
 
-        if (0 == ngx_digest_client_parse(&worker_ctx->mss_digest, auth)) {
+        if (0 == ngx_digest_client_parse(&worker_ctx->mss_digest, (const char*)auth->data)) {
             ngx_log_error(NGX_LOG_ERR, worker_ctx->log, 0, "parser WWW-Authenticate info fail.");
             return;
         }
@@ -410,11 +379,11 @@ ngx_media_worker_mss_send_body(void *request, ngx_http_request_t *hcr)
     out.buf     = &b;
     out.next    = NULL;
 
-    b->pos      = worker_ctx->mss_req_msg.data;
-    b->last     = worker_ctx->mss_req_msg.data + worker_ctx->mss_req_msg.len;
+    b.pos      = worker_ctx->mss_req_msg.data;
+    b.last     = worker_ctx->mss_req_msg.data + worker_ctx->mss_req_msg.len;
 
-    b->memory   = 1;
-    b->last_buf = 1;
+    b.memory   = 1;
+    b.last_buf = 1;
 
     if (NGX_OK != ngx_http_client_write_body(hcr,&out)) {
         ngx_log_debug0(NGX_LOG_ERR, worker_ctx->log, 0,
@@ -449,21 +418,21 @@ ngx_media_worker_mss_create_req_msg(ngx_worker_mss_ctx_t *ctx)
     }
     do {
         if(MSS_MEDIA_TYE_LIVE == enMediaType) {
-            cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString(ctx->mss_arg.mss_cameraid.data));
-            cJSON_AddItemToObject(root, "streamType", cJSON_CreateString(ctx->mss_arg.mss_streamtype.data));
+            cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
+            cJSON_AddItemToObject(root, "streamType", cJSON_CreateString((char*)ctx->mss_arg.mss_streamtype.data));
             cJSON_AddItemToObject(root, "urlType", cJSON_CreateString("1"));
         }
         else if(MSS_MEDIA_TYE_RECORD == enMediaType) {
-            cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString(ctx->mss_arg.mss_cameraid.data));
-            cJSON_AddItemToObject(root, "streamType", cJSON_CreateString(ctx->mss_arg.mss_streamtype.data));
+            cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
+            cJSON_AddItemToObject(root, "streamType", cJSON_CreateString((char*)ctx->mss_arg.mss_streamtype.data));
             cJSON_AddItemToObject(root, "urlType", cJSON_CreateString("1"));
             cJSON_AddItemToObject(root, "vodType", cJSON_CreateString("download"));
             cJSON* vodInfo = cJSON_CreateObject();
-            cJSON_AddItemToObject(vodInfo, "contentId", cJSON_CreateString(ctx->mss_arg.mss_contentid.data));
-            cJSON_AddItemToObject(vodInfo, "cameraId", cJSON_CreateString(ctx->mss_arg.mss_cameraid.data));
-            cJSON_AddItemToObject(vodInfo, "beginTime", cJSON_CreateString(ctx->mss_arg.mss_starttime.data));
-            cJSON_AddItemToObject(vodInfo, "endTime", cJSON_CreateString(ctx->mss_arg.mss_endtime.data));
-            cJSON_AddItemToObject(vodInfo, "nvrCode", cJSON_CreateString(ctx->mss_arg.mss_nvrcode.data));
+            cJSON_AddItemToObject(vodInfo, "contentId", cJSON_CreateString((char*)ctx->mss_arg.mss_contentid.data));
+            cJSON_AddItemToObject(vodInfo, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
+            cJSON_AddItemToObject(vodInfo, "beginTime", cJSON_CreateString((char*)ctx->mss_arg.mss_starttime.data));
+            cJSON_AddItemToObject(vodInfo, "endTime", cJSON_CreateString((char*)ctx->mss_arg.mss_endtime.data));
+            cJSON_AddItemToObject(vodInfo, "nvrCode", cJSON_CreateString((char*)ctx->mss_arg.mss_nvrcode.data));
         }
         char* msg = cJSON_PrintUnformatted(root);
         lens = ngx_strlen(msg);
@@ -472,7 +441,7 @@ ngx_media_worker_mss_create_req_msg(ngx_worker_mss_ctx_t *ctx)
         ngx_memcpy(ctx->mss_req_msg.data, msg,lens);
         free(msg);
         ret   = NGX_OK;
-    }while(false);
+    }while(0);
 
     cJSON_Delete(root);
     return ret;
@@ -482,7 +451,6 @@ static ngx_keyval_t*
 ngx_media_worker_mss_create_header(ngx_worker_mss_ctx_t *ctx)
 {
     ngx_keyval_t *headers = NULL;
-    char   Digest[HTTP_DIGEST_LENS_MAX] = {0};
 
     /* Authorization,Content-Type,Content-length */
     ngx_uint_t len = sizeof(ngx_keyval_t)*(NGX_MEDIA_WORKER_MSS_HTTP_HEADER_MAX + 1);
@@ -490,13 +458,13 @@ ngx_media_worker_mss_create_header(ngx_worker_mss_ctx_t *ctx)
     headers = (ngx_keyval_t *)ngx_palloc(ctx->pool,len);
 
     /* Content-Type */
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].key.data   = "Content-Type";
+    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].key.data   = (u_char*)"Content-Type";
     headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].key.len    = ngx_strlen("Content-Type");
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].value.data = "application/json";
+    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].value.data = (u_char*)"application/json";
     headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].value.len  = ngx_strlen("application/json");
 
     /* Content-length */
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].key.data   = "Content-length";
+    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].key.data   = (u_char*)"Content-length";
     headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].key.len    = ngx_strlen("Content-length");
 
     u_char* p = ngx_palloc(ctx->pool,10);
@@ -506,7 +474,7 @@ ngx_media_worker_mss_create_header(ngx_worker_mss_ctx_t *ctx)
     headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].value.len  = ngx_strlen("p");
 
     /* Authorization */
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_AUTH].key.data   = "Authorization";
+    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_AUTH].key.data   = (u_char*)"Authorization";
     headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_AUTH].key.len    = ngx_strlen("Authorization");
 
     p = ngx_palloc(ctx->pool,1024);
@@ -522,8 +490,8 @@ ngx_media_worker_mss_create_header(ngx_worker_mss_ctx_t *ctx)
     value.number = DIGEST_METHOD_POST;
     ngx_digest_set_attr(&ctx->mss_digest, D_ATTR_METHOD, value);
 
-    if (-1 == ngx_digest_client_generate_header(&ctx->mss_digest, p,1024)) {
-         (void)ngx_cpystrn(p,"Digest username=test,realm=test, nonce =0001,"
+    if (-1 == ngx_digest_client_generate_header(&ctx->mss_digest, (char*)p,1024)) {
+         (void)ngx_cpystrn(p,(u_char*)"Digest username=test,realm=test, nonce =0001,"
                        "uri=/api/alarm/list,response=c76a6680f0f1c8e26723d81b44977df0,"
                        "cnonce=00000001,opaque=000001,qop=auth,nc=00000001",
                        1024);
@@ -551,21 +519,23 @@ ngx_media_worker_mss_url_request(ngx_worker_mss_ctx_t *ctx)
     }
     /* create the message body */
     if(0 == ctx->mss_req_msg.len) {
-        if(NGX_OK != ngx_media_worker_mss_create_req_msg) {
+        if(NGX_OK != ngx_media_worker_mss_create_req_msg(ctx)) {
             return NGX_ERROR;
         }
     }
     /* create the auth info */
     headers = ngx_media_worker_mss_create_header(ctx);
 
-    ctx->mss_req = ngx_http_client_create_request(ctx->mss_arg.mss_addr,NGX_HTTP_CLIENT_POST,
+    ctx->mss_req = ngx_http_client_create_request(&ctx->mss_arg.mss_addr,NGX_HTTP_CLIENT_POST,
                                                   NGX_HTTP_CLIENT_VERSION_11,headers,
-                                                  ctx->log,ngx_media_worker_mss_recv_body,ngx_media_worker_mss_send_body);
+                                                  ctx->log,ngx_media_worker_mss_recv,ngx_media_worker_mss_send_body);
     if(NULL == ctx->mss_req) {
         return NGX_ERROR;
     }
     ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_REQ_URL;
-    return ngx_http_client_send(ctx->mss_req,NULL,ctx,ctx->log);
+
+    return ngx_http_client_send(ctx->mss_req,NULL,ctx,ctx->log,
+                                ctx->wk_ctx->resolver,ctx->wk_ctx->resolver_timeout);
 }
 
 static ngx_int_t
@@ -606,9 +576,9 @@ ngx_media_worker_mss_init(ngx_media_worker_ctx_t* ctx,WK_WATCH watch)
     if(NGX_OK != ngx_media_worker_mss_parser_args(ctx)) {
         ngx_log_debug0(NGX_LOG_ERR, ctx->log, 0,
                           "ngx_media_worker_mss_init,parser the mss args fail.");
-        return NGX_ERROR
+        return NGX_ERROR;
     }
-    if (-1 == ngx_digest_init(&ctx->mss_digest,0)) {
+    if (-1 == ngx_digest_init(&worker_ctx->mss_digest,0)) {
         return NGX_ERROR;
     }
 
@@ -679,7 +649,7 @@ static ngx_int_t
 ngx_media_worker_mss_stop(ngx_media_worker_ctx_t* ctx)
 {
 
-    if(ctx->priv_data_size != sizeof(ngx_worker_mk_ctx_t)) {
+    if(ctx->priv_data_size != sizeof(ngx_worker_mss_ctx_t)) {
         return NGX_ERROR;
     }
 
@@ -687,7 +657,7 @@ ngx_media_worker_mss_stop(ngx_media_worker_ctx_t* ctx)
         return NGX_ERROR;
     }
 
-    ngx_worker_mk_ctx_t *worker_ctx = (ngx_worker_mk_ctx_t *)ctx->priv_data;
+    ngx_worker_mss_ctx_t *worker_ctx = (ngx_worker_mss_ctx_t *)ctx->priv_data;
     if(worker_ctx->run_handle){
         mk_stop_task(worker_ctx->run_handle);
     }

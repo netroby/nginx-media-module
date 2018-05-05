@@ -43,7 +43,7 @@ static ngx_int_t ngx_rtmp_play_open(ngx_rtmp_session_t *s, double start);
 static ngx_int_t ngx_rtmp_play_remote_handle(ngx_rtmp_session_t *s,
        void *arg, ngx_chain_t *in);
 static ngx_chain_t * ngx_rtmp_play_remote_create(ngx_rtmp_session_t *s,
-       void *arg, ngx_pool_t *pool);
+       void *arg, ngx_pool_t *pool,ngx_uint_t type);
 static ngx_int_t ngx_rtmp_play_open_remote(ngx_rtmp_session_t *s,
        ngx_rtmp_play_t *v);
 static ngx_int_t ngx_rtmp_play_next_entry(ngx_rtmp_session_t *s,
