@@ -57,7 +57,7 @@ build_libxml2()
     tar -zxvf ${module_pack}
     
     cd libxml2*
-    ./configure --prefix=${PREFIX_ROOT} --enable-shared=no --with-sax1 --with-zlib=${PREFIX_ROOT} --with-iconv=${PREFIX_ROOT}
+    ./configure --prefix=${EXTEND_ROOT} --enable-shared=no --with-sax1 --with-zlib=${EXTEND_ROOT} --with-iconv=${EXTEND_ROOT}
                 
     if [ 0 -ne ${?} ]; then
         echo "configure libxml2 fail!\n"
