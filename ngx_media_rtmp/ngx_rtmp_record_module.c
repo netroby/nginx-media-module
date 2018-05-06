@@ -2004,11 +2004,10 @@ ngx_rtmp_record_ff_open(ngx_rtmp_session_t *s,ngx_rtmp_record_rec_ctx_t *rctx)
 {
     ngx_rtmp_record_app_conf_t *rracf;
     ngx_str_t                   path;
-    uint32_t                    tag_size, timestamp;
+    uint32_t                    timestamp;
     int                         ret = 0;
 
     rracf = rctx->conf;
-    tag_size = 0;
 
     if (NULL != rctx->ffctx) {
         return NGX_AGAIN;
@@ -2087,9 +2086,8 @@ ngx_rtmp_record_ff_open(ngx_rtmp_session_t *s,ngx_rtmp_record_rec_ctx_t *rctx)
 
     rctx->time_shift = timestamp;
 
-    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "record: append , time=%uD, tag_size=%uD",
-                   timestamp, tag_size);
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "record: append , time=%uD",timestamp);
 
     return NGX_OK;
 }
