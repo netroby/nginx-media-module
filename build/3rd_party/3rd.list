@@ -3,7 +3,7 @@ apr|https://github.com/H-kernel/3rd_party/blob/master/apr-1.5.2.tar.gz|apr-1.5.2
 apr-util|https://github.com/H-kernel/3rd_party/blob/master/apr-util-1.5.4.tar.gz|apr-util-1.5.4.tar.gz|
 cJSON-master|https://github.com/H-kernel/3rd_party/blob/master/cJSON-master.zip|cJSON-master.zip|
 curl|https://github.com/H-kernel/3rd_party/blob/master/curl-7.52.1.tar.gz|curl-7.52.1.tar.gz|
-faac|https://github.com/H-kernel/3rd_party/blob/master/faac-1.28.tar.gz|faac-7.52.1.tar.gz|
+faac|https://github.com/H-kernel/3rd_party/blob/master/faac-1.28.tar.gz|faac-1.28.tar.gz|
 faad2|https://github.com/H-kernel/3rd_party/blob/master/faad2-2.7.tar.gz|faad2-2.7.tar.gz|
 fdk-aac|https://github.com/H-kernel/3rd_party/blob/master/fdk-aac-v0.1.5.tar.gz|fdk-aac-v0.1.5.tar.gz|
 ffmpeg|https://github.com/H-kernel/3rd_party/blob/master/ffmpeg-3.4.1.tar.gz|ffmpeg-3.4.1.tar.gz|
@@ -43,4 +43,4 @@ yasm|https://github.com/H-kernel/3rd_party/blob/master/yasm-1.3.0.tar.gz|yasm-1.
 zimg|https://github.com/H-kernel/3rd_party/blob/master/zimg-v3.1.0.tar.gz|zimg-v3.1.0.tar.gz|
 zlib|https://github.com/H-kernel/3rd_party/blob/master/zlib-1.2.8.tar.gz|zlib-1.2.8.tar.gz|
 zookeeper|https://github.com/H-kernel/3rd_party/blob/master/zookeeper-3.4.9.tar.gz|zookeeper-3.4.9.tar.gz|
-libtasn1|https://github.com/H-kernel/3rd_party/blob/master/libtasn1-4.9.tar.gz|libtasn1-4.9.tar.gz
+libtasn1|https://github.com/H-kernel/3rd_party/blob/master/libtasn1-4.9.tar.gz|libtasn1-4.9.tar.gz|
