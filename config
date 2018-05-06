@@ -492,8 +492,12 @@ ALLMEDIA_LIBS="
                      -lzookeeper_mt -lcjson  -lfdk-aac -lfreetype -lvidstab            \
                      -lopencore-amrnb -lopencore-amrwb  -lopenjp2 -lopus -lspeex       \
                      -ltheora -lvpx  -lx265 -lxvidcore -lgnutls -lrtmp -lvorbis -lsoxr \
+                     -lcharset -lcrypto  -lexpat -lgnutlsxx -lhogweed -liconv  -lgmp   \
+                     -lmp3lame -lmp4ff  -lnettle -logg -lpcre -lpcrecpp -lpcreposix    \
+                     -lsoxr-lsr -lssl  -ltheoradec -ltheoraenc -lunistring -lvorbisenc \
+                     -lvorbisfile -lwebp  -lyasm -ltasn1 -lz                     \
                      -loss_c_sdk_static -laprutil-1 -lmxml -lapr-1 -lcurl              \
-                     -Wl,-Bdynamic -ldl -pthread -lrt -lm                              \
+                     -Wl,-Bdynamic -ldl -lstdc++ -pthread -lrt -lm -lgomp              \
                     "
 
 if [ -f auto/module ] ; then
@@ -550,6 +554,7 @@ else
                             -I$ngx_addon_dir/build/extend/include/         \
                             -I$ngx_addon_dir/build/extend/include/libxml2/ \
                             -I$ngx_addon_dir/build/extend/include/apr-1/   \
+                            -fopenmp                                       \
                    "
 fi
 
