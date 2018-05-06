@@ -1869,6 +1869,11 @@ ngx_media_task_deal_static_xml(ngx_tree_ctx_t *ctx, ngx_str_t *path)
                           "http video task unknow the command type.");
     }
 
+    if(HTTP_VIDEO_ERROR_CODE_OK != ret) {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0,
+                          "ngx http video task deal xml req error,ret:%d.",ret);
+    }
+
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, conf->log, 0,
                           "ngx http video task deal xml req,ret:%d.",ret);
     xmlFreeDoc(doc);
