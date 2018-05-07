@@ -12,7 +12,6 @@ freetype|https://github.com/H-kernel/3rd_party/blob/master/freetype-2.6.1.tar.gz
 frei0r-plugins|https://github.com/H-kernel/3rd_party/blob/master/frei0r-plugins-1.6.1.tar.gz|frei0r-plugins-1.6.1.tar.gz|
 fribidi|https://github.com/H-kernel/3rd_party/blob/master/fribidi-master.zip|fribidi-master.zip|
 gmp|https://github.com/H-kernel/3rd_party/blob/master/gmp-6.1.2.tar.bz2|gmp-6.1.2.tar.bz2|
-gnutls|https://github.com/H-kernel/3rd_party/blob/master/gnutls-3.5.17.tar.gz|gnutls-3.5.17.tar.gz|
 lame|https://github.com/H-kernel/3rd_party/blob/master/lame-3.99.5.tar.gz|lame-3.99.5.tar.gz|
 x264|https://github.com/H-kernel/3rd_party/blob/master/last_x264.tar.bz2|last_x264.tar.bz2|
 libass|https://github.com/H-kernel/3rd_party/blob/master/libass-0.14.0.tar.gz|libass-0.14.0.tar.gz|
@@ -25,7 +24,6 @@ libvpx|https://github.com/H-kernel/3rd_party/blob/master/libvpx-v1.6.1.tar.gz|li
 libwebp|https://github.com/H-kernel/3rd_party/blob/master/libwebp-0.6.1.tar.gz|libwebp-0.6.1.tar.gz|
 libxml2|https://github.com/H-kernel/3rd_party/blob/master/libxml2-2.9.7.tar.gz|libxml2-2.9.7.tar.gz|
 mxml|https://github.com/H-kernel/3rd_party/blob/master/mxml-2.10.tar.gz|mxml-2.10.tar.gz|
-nettle|https://github.com/H-kernel/3rd_party/blob/master/nettle-3.4.tar.gz|nettle-3.4.tar.gz|
 opencore-amr|https://github.com/H-kernel/3rd_party/blob/master/opencore-amr-0.1.5.tar.gz|opencore-amr-0.1.5.tar.gz|
 openjpeg|https://github.com/H-kernel/3rd_party/blob/master/openjpeg-v2.3.0.tar.gz|openjpeg-v2.3.0.tar.gz|
 openssl|https://github.com/H-kernel/3rd_party/blob/master/openssl-0.9.8w.tar.gz|openssl-0.9.8w.tar.gz|
@@ -43,4 +41,3 @@ yasm|https://github.com/H-kernel/3rd_party/blob/master/yasm-1.3.0.tar.gz|yasm-1.
 zimg|https://github.com/H-kernel/3rd_party/blob/master/zimg-v3.1.0.tar.gz|zimg-v3.1.0.tar.gz|
 zlib|https://github.com/H-kernel/3rd_party/blob/master/zlib-1.2.8.tar.gz|zlib-1.2.8.tar.gz|
 zookeeper|https://github.com/H-kernel/3rd_party/blob/master/zookeeper-3.4.9.tar.gz|zookeeper-3.4.9.tar.gz|
-libtasn1|https://github.com/H-kernel/3rd_party/blob/master/libtasn1-4.9.tar.gz|libtasn1-4.9.tar.gz|
