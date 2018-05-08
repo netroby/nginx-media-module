@@ -491,11 +491,11 @@ ALLMEDIA_LIBS="
                      -lfaac -lfaad -lmp3lame -lxml2 -liconv -llzma -lbz2               \
                      -lzookeeper_mt -lcjson  -lfdk-aac -lfreetype -lvidstab            \
                      -lopencore-amrnb -lopencore-amrwb  -lopenjp2 -lopus -lspeex       \
-                     -ltheora -lvpx  -lx265 -lxvidcore -lgnutls -lrtmp -lvorbis -lsoxr \
-                     -lcharset -lcrypto  -lexpat -lgnutlsxx -lhogweed -liconv  -lgmp   \
-                     -lmp3lame -lmp4ff  -lnettle -logg -lpcre -lpcrecpp -lpcreposix    \
+                     -ltheora -lvpx  -lx265 -lxvidcore -lrtmp -lvorbis -lsoxr          \
+                     -lcharset -lcrypto  -lexpat -liconv  -lgmp                        \
+                     -lmp3lame -lmp4ff   -logg -lpcre -lpcrecpp -lpcreposix            \
                      -lsoxr-lsr -lssl  -ltheoradec -ltheoraenc -lunistring -lvorbisenc \
-                     -lvorbisfile -lwebp  -lyasm -ltasn1 -lz                     \
+                     -lvorbisfile -lwebp  -lyasm -lz                                   \
                      -loss_c_sdk_static -laprutil-1 -lmxml -lapr-1 -lcurl              \
                      -Wl,-Bdynamic -ldl -lstdc++ -pthread -lrt -lm -lgomp              \
                     "
