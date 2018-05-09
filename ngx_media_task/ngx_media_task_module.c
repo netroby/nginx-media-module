@@ -227,6 +227,11 @@ ngx_media_task_postconfiguration(ngx_conf_t *cf)
 
         clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
 
+        if((NULL == mmcf)||(NULL == clcf))
+        {
+            continue;
+        }
+
         mmcf->resolver         = clcf->resolver;
         mmcf->resolver_timeout = clcf->resolver_timeout;
     }
