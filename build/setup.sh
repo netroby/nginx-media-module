@@ -10,7 +10,23 @@ export THIRD_ROOT=${CURRENT_PATH}/3rd_party/
 export EXTEND_ROOT=${CURRENT_PATH}/extend/
 export PATCH_ROOT=${CURRENT_PATH}/patch/
 export SCRIPT_ROOT=${CURRENT_PATH}/script/
+
+find=`env|grep PKG_CONFIG_PATH`    
+if [ "find${find}" == "find" ]; then    
+    export PKG_CONFIG_PATH=${EXTEND_ROOT}/lib/pkgconfig/
+else
+    export PKG_CONFIG_PATH=${EXTEND_ROOT}/lib/pkgconfig/:${PKG_CONFIG_PATH}
+fi
+
+find=`env|grep PATH`
+if [ "find${find}" == "find" ]; then    
+    export PATH=${EXTEND_ROOT}/bin/
+else
+    export PATH=${EXTEND_ROOT}/bin/:${PATH}
+fi
 echo "------------------------------------------------------------------------------"
+echo " PKG_CONFIG_PATH: ${PKG_CONFIG_PATH}"
+echo " PATH ${PATH}"
 echo " ALLMEDIA_ROOT exported as ${ALLMEDIA_ROOT}"
 echo "------------------------------------------------------------------------------"
 
