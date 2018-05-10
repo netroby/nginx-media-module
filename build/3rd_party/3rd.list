@@ -6,7 +6,6 @@ curl|https://github.com/H-kernel/3rd_party/blob/master/curl-7.52.1.tar.gz|curl-7
 faac|https://github.com/H-kernel/3rd_party/blob/master/faac-1.28.tar.gz|faac-1.28.tar.gz|
 faad2|https://github.com/H-kernel/3rd_party/blob/master/faad2-2.7.tar.gz|faad2-2.7.tar.gz|
 fdk-aac|https://github.com/H-kernel/3rd_party/blob/master/fdk-aac-v0.1.5.tar.gz|fdk-aac-v0.1.5.tar.gz|
-ffmpeg|https://github.com/H-kernel/3rd_party/blob/master/ffmpeg-3.4.1.tar.gz|ffmpeg-3.4.1.tar.gz|
 fontconfig|https://github.com/H-kernel/3rd_party/blob/master/fontconfig-2.12.91.tar.gz|fontconfig-2.12.91.tar.gz|
 freetype|https://github.com/H-kernel/3rd_party/blob/master/freetype-2.6.1.tar.gz|freetype-2.6.1.tar.gz|
 frei0r-plugins|https://github.com/H-kernel/3rd_party/blob/master/frei0r-plugins-1.6.1.tar.gz|frei0r-plugins-1.6.1.tar.gz|
