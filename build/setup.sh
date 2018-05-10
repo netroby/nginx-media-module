@@ -511,7 +511,7 @@ build_mk_module()
     module_pack="libMediakenerl-master.zip"
     cd ${THIRD_ROOT}
     if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the libxml2 package from server\n"
+        echo "start get the libMediakenerl package from server\n"
         wget https://github.com/H-kernel/libMediakenerl/archive/master.zip -O ${module_pack}
     fi
     unzip -o ${module_pack}
