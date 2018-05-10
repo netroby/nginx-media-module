@@ -548,6 +548,7 @@ build_engine_module()
 {
     cd ${THIRD_ROOT}/nginx-*
     
+    make clean
     make&&make install
     
     if [ 0 -ne ${?} ]; then
@@ -638,7 +639,7 @@ rebuild_engine_module()
        echo "configure the nginx fail!\n"
        return 1
     fi
-    
+    make clean
     make&&make install
     
     if [ 0 -ne ${?} ]; then
@@ -662,6 +663,7 @@ build_allmedia_module()
 {
     cd ${THIRD_ROOT}/allmedia*
     
+    make clean
     make&&make install
     
     if [ 0 -ne ${?} ]; then
@@ -754,6 +756,7 @@ rebuild_allmedia_module()
        return 1
     fi
     
+    make clean
     make&&make install
     
     if [ 0 -ne ${?} ]; then
