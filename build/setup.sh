@@ -579,7 +579,6 @@ rebuild_engine_module()
     basic_opt=" --prefix=${PREFIX_ROOT} ${WITHDEBUG} 
                 --with-threads 
                 --with-file-aio 
-                --with-ipv6
                 --with-http_ssl_module 
                 --with-http_realip_module 
                 --with-http_addition_module 
@@ -695,7 +694,6 @@ rebuild_allmedia_module()
                 --sbin-path=sbin/allmedia
                 --with-threads 
                 --with-file-aio 
-                --with-ipv6
                 --with-http_ssl_module 
                 --with-http_realip_module 
                 --with-http_addition_module 
