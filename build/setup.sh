@@ -893,7 +893,7 @@ all_modules_func()
         FUNC[2]="build_mk_module"
         
         TEXT[3]="build the media kenerl module whitout 3rd module"
-        FUNC[4]="build_mk_without_extend_module"
+        FUNC[3]="build_mk_without_extend_module"
         
 }
 
