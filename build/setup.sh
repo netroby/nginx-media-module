@@ -543,6 +543,27 @@ build_mk_module()
     
     return 0
 }
+build_mk_without_extend_module()
+{   
+    module_pack="libMediakenerl-master.zip"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the libMediakenerl package from server\n"
+        wget https://github.com/H-kernel/libMediakenerl/archive/master.zip -O ${module_pack}
+    fi
+    unzip -o ${module_pack}
+    
+    cd libMediakenerl*
+    cd build/linux/
+    chmod +x setup.sh
+    ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT} -e FALSE
+    if [ 0 -ne ${?} ]; then
+        echo "build the media kernel module fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
 
 build_engine_module()
 {
@@ -870,6 +891,9 @@ all_modules_func()
         
         TEXT[2]="build the media kenerl module"
         FUNC[2]="build_mk_module"
+        
+        TEXT[3]="build the media kenerl module whitout 3rd module"
+        FUNC[4]="build_mk_without_extend_module"
         
 }
 
