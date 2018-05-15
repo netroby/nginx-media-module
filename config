@@ -133,6 +133,7 @@ ALLMEDIA_HTTP_MODULES="   ngx_media_task_module                                 
                           ngx_rtmpt_proxy_module                                       \
                           ngx_rtmpt_proxy_stat_module                                  \
                           ngx_media_live_module                                        \
+                          ngx_http_zmq_module                                          \
                       "  
 
 ALLMEDIA_HTTP_FILTER_MODULES="   
@@ -172,6 +173,7 @@ ALLMEDIA_ADDON_INCS="$ngx_addon_dir                                             
                      $ngx_addon_dir/ngx_media_common/                                  \
                      $ngx_addon_dir/ngx_media_sch/                                     \
                      $ngx_addon_dir/ngx_media_live/                                    \
+                     $ngx_addon_dir/ngx_media_zmq/                                     \
                      $ngx_addon_dir/build/extend/include/                              \
                      $ngx_addon_dir/build/extend/include/libxml2/                      \
                      $ngx_addon_dir/build/extend/include/apr-1/                        \
@@ -334,6 +336,7 @@ ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_http_client/ngx_client.h          
                      $ngx_addon_dir/ngx_media_vod/vod/write_buffer_queue.h             \
                      $ngx_addon_dir/ngx_media_vod/vod/write_stream.h                   \
                      $ngx_addon_dir/ngx_media_live/ngx_media_live_module.h             \
+                     $ngx_addon_dir/ngx_media_zmq/ngx_zmq_conn_pool.h                  \
                     "
 
 
@@ -359,6 +362,8 @@ ALLMEDIA_HTTP_SRCS=" $ngx_addon_dir/ngx_media_http_client/ngx_client.c          
                      $ngx_addon_dir/ngx_media_rtmp_proxy/ngx_rtmpt_proxy_transport.c   \
                      $ngx_addon_dir/ngx_media_rtmp_proxy/ngx_rtmpt_proxy_stat.c        \
                      $ngx_addon_dir/ngx_media_live/ngx_media_live_module.c             \
+                     $ngx_addon_dir/ngx_media_zmq/ngx_zmq_conn_pool.c                  \
+                     $ngx_addon_dir/ngx_media_zmq/ngx_http_zmq_module.c                \
                     "
                     
 ALLMEDIA_HTTP_FILTER_SRCS="
@@ -495,7 +500,7 @@ ALLMEDIA_LIBS="
                      -lcharset -lcrypto  -lexpat -liconv  -lgmp                        \
                      -lmp3lame -lmp4ff   -logg -lpcre -lpcrecpp -lpcreposix            \
                      -lsoxr-lsr -lssl  -ltheoradec -ltheoraenc -lunistring -lvorbisenc \
-                     -lvorbisfile -lwebp  -lyasm -lz                                   \
+                     -lvorbisfile -lwebp  -lyasm -lzmq -lz                             \
                      -loss_c_sdk_static -laprutil-1 -lmxml -lapr-1 -lcurl              \
                      -Wl,-Bdynamic -ldl -lstdc++ -pthread -lrt -lm -lgomp              \
                     "

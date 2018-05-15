@@ -455,6 +455,28 @@ build_oss_sdk_module()
     
     return 0
 }
+build_zeromq()
+{
+    module_pack="zeromq-4.2.5.tar.gz"
+    cd ${THIRD_ROOT}
+    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
+        echo "start get the zeromq package from server\n"
+        wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/${module_pack}
+    fi
+    tar -zxvf ${module_pack}
+    
+    cd zeromq*
+    ./configure --prefix=${PREFIX_ROOT}
+                
+    make && make install
+    
+    if [ 0 -ne ${?} ]; then
+        echo "build zeromq fail!\n"
+        return 1
+    fi
+    
+    return 0
+}
 
 build_extend_modules()
 {
@@ -516,6 +538,10 @@ build_extend_modules()
         return 1
     fi
     build_oss_sdk_module
+    if [ 0 -ne ${?} ]; then
+        return 1
+    fi
+    build_zeromq
     if [ 0 -ne ${?} ]; then
         return 1
     fi
