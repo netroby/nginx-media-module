@@ -6,5 +6,5 @@ if [ -f "$curpath/nginx" ];then
     killall -9 nginx 
 fi
 if [ -f "$curpath/allmedia" ];then
-    killall -0 allmedia
+    killall -9 allmedia
 fi
