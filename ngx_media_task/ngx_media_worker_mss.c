@@ -1,6 +1,5 @@
 #include "ngx_media_worker_mss.h"
-#include "ngx_http_client.h"
-#include "ngx_http_digest.h"
+#include <curl/curl.h>
 #include <cjson/cJSON.h>
 
 
@@ -53,8 +52,8 @@ typedef struct {
     WOKER_MSS_STATUS                status;
     /* mss http request */
     ngx_worker_mss_arg_t            mss_arg;
-    ngx_http_request_t             *mss_req;
-    ngx_digest_t                    mss_digest;
+    CURL                           *mss_req;
+    curl_slist                     *mss_headList;
     ngx_str_t                       mss_req_msg;
     ngx_str_t                       mss_resp_msg;
     /* mk context */
@@ -65,8 +64,9 @@ typedef struct {
 } ngx_worker_mss_ctx_t;
 
 
-#define NGX_HTTP_VIDEO_MSS_TIME 5000
-#define NGX_MSS_ERROR_CODE_OK   "00000000"
+#define NGX_HTTP_VIDEO_MSS_TIME  5000
+#define NGX_MSS_ERROR_CODE_OK    "00000000"
+#define NGX_MSS_RESPONSE_MAX_LEN 2048
 
 enum NGX_MEDIA_WORKER_MSS_HTTP_HEADER
 {
@@ -173,8 +173,14 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
 
     if(NGX_MEDIA_WOKER_MSS_STATUS_INIT == worker_ctx->status ) {
         worker_ctx->watcher(ngx_media_worker_status_init,worker_ctx->wk_ctx);
+        worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_REQ_URL;
     }
     else if(NGX_MEDIA_WOKER_MSS_STATUS_REQ_URL == worker_ctx->status ) {
+        if(NGX_OK != ngx_media_worker_mss_url_request(worker_ctx)) {
+            ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                              "ngx_media_worker_mss_start worker:[%V] send mss request fail.",&ctx->wokerid);
+            return;
+        }
         worker_ctx->watcher(ngx_media_worker_status_running,worker_ctx->wk_ctx);
     }
     else if(NGX_MEDIA_WOKER_MSS_STATUS_MK_RUN == worker_ctx->status ) {
@@ -208,7 +214,7 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
     ngx_add_timer(&worker_ctx->timer,NGX_HTTP_VIDEO_MSS_TIME);
 }
 
-static void
+static ngx_uint_t
 ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
 {
     ngx_flag_t flag = 0;
@@ -216,7 +222,7 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
     cJSON* root = cJSON_Parse((char*)worker_ctx->mss_resp_msg.data);
     if (NULL == root) {
         ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message parser fail.");
-        return;
+        return NGX_ERROR;
     }
     do {
         cJSON *resultCode = cJSON_GetObjectItem(root, "resultCode");
@@ -245,7 +251,7 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
 
     if(!flag) {
         worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_BREAK;
-        return;
+        return NGX_ERROR;
     }
 
     /* 2. start the MK task */
@@ -256,142 +262,12 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
         mk_destory_handle(worker_ctx->run_handle);
         worker_ctx->run_handle = NULL;
         worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_BREAK;
-        return;
+        return NGX_ERROR;
     }
     worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_MK_RUN;
+    return NGX_OK;
 }
 
-static void
-ngx_media_worker_mss_recv_body(void *request, ngx_http_request_t *hcr)
-{
-    ngx_worker_mss_ctx_t   *worker_ctx = (ngx_worker_mss_ctx_t *)request;
-    ngx_http_client_ctx_t  *ctx        = hcr->ctx[0];
-    ngx_chain_t            *cl         = NULL;
-    ngx_chain_t           **ll;
-    ngx_int_t               rc;
-    ngx_uint_t              size       = 0;
-
-
-    ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"http client test recv body");
-    do {
-        rc = ngx_http_client_read_body(hcr, &cl, worker_ctx->mss_resp_msg.len);
-        ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"http client test recv body, rc %i %i, %O",rc, ngx_errno, ctx->rbytes);
-        if (rc == 0) {
-            worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_BREAK;
-            break;
-        }
-        if (rc == NGX_ERROR) {
-            worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_BREAK;
-            break;
-        }
-        if (rc == NGX_DONE)
-        {
-            u_char* last = worker_ctx->mss_resp_msg.data;
-
-            for (ll = &cl; (*ll)->next; ll = &(*ll)->next) {
-                size = (*ll)->buf->last - (*ll)->buf->pos;
-                last = ngx_cpymem(last, (*ll)->buf->pos, size);
-                *last = '\0';
-            }
-            (*ll)->buf->last_buf = 1;
-            ngx_media_worker_mss_start_media_kernel(worker_ctx);
-        }
-    }while(0);
-
-    ngx_http_client_finalize_request(hcr, 1);
-    return;
-}
-static void
-ngx_media_worker_mss_recv(void *request, ngx_http_request_t *hcr)
-{
-    ngx_worker_mss_ctx_t   *worker_ctx = (ngx_worker_mss_ctx_t *)request;
-    ngx_http_client_ctx_t  *ctx;
-    static ngx_str_t        www_auth     = ngx_string("WWW-Authenticate");
-    static ngx_str_t        cont_lenth   = ngx_string("Content-length");
-    ngx_str_t              *auth         = NULL;
-    ngx_str_t              *cl           = NULL;
-    ngx_uint_t              status_code  = NGX_HTTP_OK;
-    ctx = hcr->ctx[0];
-
-    ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0, "ngx media worker mss handle recv");
-
-    ctx->read_handler = ngx_media_worker_mss_recv_body;
-
-    ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,
-                         "ngx media worker mss status code: %ui   http_version: %ui",
-                         ngx_http_client_status_code(hcr),
-                         ngx_http_client_http_version(hcr));
-
-    if(NGX_HTTP_UNAUTHORIZED == status_code) {
-        /* need authortized */
-        auth = ngx_http_client_header_in(hcr, &www_auth);
-        if(NULL == auth) {
-            ngx_log_error(NGX_LOG_ERR, worker_ctx->log, 0, "ngx media worker mss return 401,but no auth head.");
-            return;
-        }
-
-        if (-1 == ngx_digest_is_digest((const char*)auth->data)) {
-            ngx_log_error(NGX_LOG_ERR, worker_ctx->log, 0, "the WWW-Authenticate is not digest.");
-            return;
-        }
-
-        if (0 == ngx_digest_client_parse(&worker_ctx->mss_digest, (const char*)auth->data)) {
-            ngx_log_error(NGX_LOG_ERR, worker_ctx->log, 0, "parser WWW-Authenticate info fail.");
-            return;
-        }
-
-        /* close this request ,and try again */
-        (void)ngx_media_worker_mss_url_request(worker_ctx);
-        return;
-    }
-    else if(NGX_HTTP_OK == status_code) {
-        cl = ngx_http_client_header_in(hcr, &cont_lenth);
-        if(NULL == cl) {
-            ngx_log_error(NGX_LOG_ERR, worker_ctx->log, 0, "ngx media worker mss response get content length fail.");
-            return;
-        }
-        worker_ctx->mss_resp_msg.len  = ngx_atoi(cl->data,cl->len);
-        worker_ctx->mss_resp_msg.data = ngx_pcalloc(worker_ctx->pool,worker_ctx->mss_resp_msg.len + 1);
-        ngx_media_worker_mss_recv_body(request, hcr);
-        return;
-    }
-
-    /* error request */
-    worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_BREAK;
-    ngx_http_client_finalize_request(worker_ctx->mss_req,1);
-    worker_ctx->mss_req = NULL;
-
-    ngx_log_error(NGX_LOG_ERR, worker_ctx->log, 0, "ngx media worker mss response code:[%d] error,msg:[%V].",
-                                             status_code,&worker_ctx->mss_req_msg);
-    return;
-
-
-}
-
-
-static void
-ngx_media_worker_mss_send_body(void *request, ngx_http_request_t *hcr)
-{
-    ngx_worker_mss_ctx_t *worker_ctx = (ngx_worker_mss_ctx_t *)request;
-
-    ngx_chain_t out;
-    ngx_buf_t   b;
-    out.buf     = &b;
-    out.next    = NULL;
-
-    b.pos      = worker_ctx->mss_req_msg.data;
-    b.last     = worker_ctx->mss_req_msg.data + worker_ctx->mss_req_msg.len;
-
-    b.memory   = 1;
-    b.last_buf = 1;
-
-    if (NGX_OK != ngx_http_client_write_body(hcr,&out)) {
-        ngx_log_debug0(NGX_LOG_ERR, worker_ctx->log, 0,
-                          "ngx_media_worker_mss_send_body,send the msg body fail.");
-        worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_BREAK;
-    }
-    return;
-}
 
 static ngx_int_t
 ngx_media_worker_mss_create_req_msg(ngx_worker_mss_ctx_t *ctx)
@@ -447,72 +323,32 @@ ngx_media_worker_mss_create_req_msg(ngx_worker_mss_ctx_t *ctx)
     return ret;
 }
 
-static ngx_keyval_t*
-ngx_media_worker_mss_create_header(ngx_worker_mss_ctx_t *ctx)
+
+static size_t
+ngx_media_worker_mss_curl_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
-    ngx_keyval_t *headers = NULL;
-
-    /* Authorization,Content-Type,Content-length */
-    ngx_uint_t len = sizeof(ngx_keyval_t)*(NGX_MEDIA_WORKER_MSS_HTTP_HEADER_MAX + 1);
-
-    headers = (ngx_keyval_t *)ngx_palloc(ctx->pool,len);
-
-    /* Content-Type */
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].key.data   = (u_char*)"Content-Type";
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].key.len    = ngx_strlen("Content-Type");
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].value.data = (u_char*)"application/json";
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_TYPE].value.len  = ngx_strlen("application/json");
-
-    /* Content-length */
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].key.data   = (u_char*)"Content-length";
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].key.len    = ngx_strlen("Content-length");
-
-    u_char* p = ngx_palloc(ctx->pool,10);
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].value.data = p;
-    u_char* last = ngx_snprintf(p, 10,"%d",ctx->mss_req_msg.len);
-    *last = '\0';
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_LENGHT].value.len  = ngx_strlen("p");
-
-    /* Authorization */
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_AUTH].key.data   = (u_char*)"Authorization";
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_AUTH].key.len    = ngx_strlen("Authorization");
-
-    p = ngx_palloc(ctx->pool,1024);
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_AUTH].value.data = p;
-
-    ngx_digest_attr_value_t value;
-    value.string = (char*)ctx->mss_arg.mss_name.data;
-    ngx_digest_set_attr(&ctx->mss_digest, D_ATTR_USERNAME,value);
-    value.string = (char*)ctx->mss_arg.mss_passwd.data;
-    ngx_digest_set_attr(&ctx->mss_digest, D_ATTR_PASSWORD,value);
-    value.string = (char*)ctx->mss_arg.mss_addr.data;
-    ngx_digest_set_attr(&ctx->mss_digest, D_ATTR_URI,value);
-    value.number = DIGEST_METHOD_POST;
-    ngx_digest_set_attr(&ctx->mss_digest, D_ATTR_METHOD, value);
-
-    if (-1 == ngx_digest_client_generate_header(&ctx->mss_digest, (char*)p,1024)) {
-         (void)ngx_cpystrn(p,(u_char*)"Digest username=test,realm=test, nonce =0001,"
-                       "uri=/api/alarm/list,response=c76a6680f0f1c8e26723d81b44977df0,"
-                       "cnonce=00000001,opaque=000001,qop=auth,nc=00000001",
-                       1024);
+    ngx_worker_mss_ctx_t *ctx = (ngx_worker_mss_ctx_t*)userdata;
+    if(NULL == ctx->mss_resp_msg.data) {
+        return NGX_ERROR;
     }
 
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_AUTH].value.len  = ngx_strlen("p");
+    size_t recv_size = size * nmemb;
 
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_MAX].key.data   = NULL;
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_MAX].key.len    = 0;
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_MAX].value.data = NULL;
-    headers[NGX_MEDIA_WORKER_MSS_HTTP_HEADER_MAX].value.len  = 0;
+    ngx_uint_t recved_size = ngx_strlen(ctx->mss_resp_msg.data);
+    if(NGX_MSS_RESPONSE_MAX_LEN < (recv_size + recved_size)) {
+        return NGX_ERROR;
+    }
+    u_char*last = ngx_cpymem(ctx->mss_resp_msg.data + recved_size, ptr, recv_size);
 
+    *last = '\0';
 
-    return headers;
+    return recv_size;
 }
 
 
 static ngx_int_t
 ngx_media_worker_mss_url_request(ngx_worker_mss_ctx_t *ctx)
 {
-    ngx_keyval_t *headers = NULL;
     if(NULL != ctx->mss_req) {
         ngx_http_client_finalize_request(ctx->mss_req,1);
         ctx->mss_req = NULL;
@@ -523,19 +359,76 @@ ngx_media_worker_mss_url_request(ngx_worker_mss_ctx_t *ctx)
             return NGX_ERROR;
         }
     }
-    /* create the auth info */
-    headers = ngx_media_worker_mss_create_header(ctx);
 
-    ctx->mss_req = ngx_http_client_create_request(&ctx->mss_arg.mss_addr,NGX_HTTP_CLIENT_POST,
-                                                  NGX_HTTP_CLIENT_VERSION_11,headers,
-                                                  ctx->log,ngx_media_worker_mss_recv,ngx_media_worker_mss_send_body);
+    if(0 == ctx->mss_resp_msg.len) {
+        ctx->mss_resp_msg.data = ngx_pcalloc(ctx->pool,NGX_MSS_RESPONSE_MAX_LEN);
+        ctx->mss_resp_msg.len  = NGX_MSS_RESPONSE_MAX_LEN;
+        if(NULL == ctx->mss_resp_msg.data) {
+            return NGX_ERROR;
+        }
+    }
+
+    ctx->mss_req = = curl_easy_init();;
     if(NULL == ctx->mss_req) {
         return NGX_ERROR;
     }
-    ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_REQ_URL;
+    curl_easy_setopt(ctx->mss_req, CURLOPT_USERAGENT, "alltask/1.0");
+	curl_easy_setopt(ctx->mss_req, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+	curl_easy_setopt(ctx->mss_req, CURLOPT_CONNECTTIMEOUT, 10);
+	curl_easy_setopt(ctx->mss_req, CURLOPT_TIMEOUT, 10);
 
-    return ngx_http_client_send(ctx->mss_req,NULL,ctx,ctx->log,
-                                ctx->wk_ctx->resolver,ctx->wk_ctx->resolver_timeout);
+	ctx->mss_headList = curl_slist_append(NULL, "Content-Type:application/json;charset=UTF-8");
+	curl_easy_setopt(ctx->mss_req, CURLOPT_HTTPHEADER, ctx->mss_headList);
+
+	curl_easy_setopt(ctx->mss_req, CURLOPT_WRITEFUNCTION, ngx_media_worker_mss_curl_callback);
+	curl_easy_setopt(ctx->mss_req, CURLOPT_WRITEDATA, ctx);
+    if((0 < ctx->mss_arg.mss_name.len)&&(0 < ctx->mss_arg.mss_passwd.len)) {
+        curl_easy_setopt(ctx->mss_req, CURLOPT_USERNAME, ctx->mss_arg.mss_name.date);
+	    curl_easy_setopt(ctx->mss_req, CURLOPT_PASSWORD, ctx->mss_arg.mss_passwd.date);
+    }
+    curl_easy_setopt(ctx->mss_req, CURLOPT_URL, ctx->mss_arg.mss_addr.data);
+
+    curl_easy_setopt(ctx->mss_req, CURLOPT_POSTFIELDS, ctx->mss_req_msg.data);
+
+    do
+    {
+        CURLcode eResult = curl_easy_perform(ctx->mss_req);
+    	if (CURLE_OK != eResult) {
+    		break;
+    	}
+
+        long nResponseCode;
+    	curl_easy_getinfo(ctx->mss_req, CURLINFO_RESPONSE_CODE, &nResponseCode);
+
+    	if (NGX_HTTP_OK != nResponseCode) {
+    		break;
+    	}
+
+        if (NULL != ctx->mss_headList) {
+    		curl_slist_free_all(ctx->mss_headList);
+            ctx->mss_headList = NULL;
+    	}
+
+    	if (NULL != ctx->mss_req) {
+    		curl_easy_cleanup(ctx->mss_req);
+    		ctx->mss_req = NULL;
+    	}
+
+        return ngx_media_worker_mss_start_media_kernel(ctx);
+    }while(false);
+
+    ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_BREAK;
+
+    if (NULL != ctx->mss_headList) {
+		curl_slist_free_all(ctx->mss_headList);
+        ctx->mss_headList = NULL;
+	}
+
+	if (NULL != ctx->mss_req) {
+		curl_easy_cleanup(ctx->mss_req);
+		ctx->mss_req = NULL;
+	}
+    return NGX_ERROR;
 }
 
 static ngx_int_t
@@ -576,9 +469,6 @@ ngx_media_worker_mss_init(ngx_media_worker_ctx_t* ctx,WK_WATCH watch)
     if(NGX_OK != ngx_media_worker_mss_parser_args(ctx)) {
         ngx_log_debug0(NGX_LOG_ERR, ctx->log, 0,
                           "ngx_media_worker_mss_init,parser the mss args fail.");
-        return NGX_ERROR;
-    }
-    if (-1 == ngx_digest_init(&worker_ctx->mss_digest,0)) {
         return NGX_ERROR;
     }
 
@@ -624,17 +514,13 @@ ngx_media_worker_mss_start(ngx_media_worker_ctx_t* ctx)
 
     ngx_worker_mss_ctx_t *worker_ctx = (ngx_worker_mss_ctx_t *)ctx->priv_data;
 
-    /* start the first http request  from mss */
-    if(NGX_OK != ngx_media_worker_mss_url_request(worker_ctx)) {
-        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                          "ngx_media_worker_mss_start worker:[%V] send mss request fail.",&ctx->wokerid);
-        return NGX_ERROR;
-    }
+
     ngx_memzero(&worker_ctx->timer, sizeof(ngx_event_t));
 
     worker_ctx->timer.handler = ngx_media_worker_mss_timer;
     worker_ctx->timer.log     = ctx->log;
     worker_ctx->timer.data    = worker_ctx;
+    worker_ctx->status        = NGX_MEDIA_WOKER_MSS_STATUS_INIT;
 
     ngx_add_timer(&worker_ctx->timer,NGX_HTTP_VIDEO_MSS_TIME);
 
