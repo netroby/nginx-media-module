@@ -78,6 +78,7 @@
 #define TASK_COMMAND_START      "start"
 #define TASK_COMMAND_RUNNING    "running"
 #define TASK_COMMAND_STOP       "stop"
+#define TASK_COMMAND_BREAK      "break"
 #define TASK_COMMAND_UPDATE     "update"
 
 #define TASK_XML_WORKERS        "workers"

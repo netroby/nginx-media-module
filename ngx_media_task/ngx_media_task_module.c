@@ -749,7 +749,7 @@ ngx_media_task_report_create_request(ngx_media_task_t *task,
         xmlNewProp(task_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_STOP);
     }
     else if(task->status == ngx_media_worker_status_break) {
-        xmlNewProp(task_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_STOP);
+        xmlNewProp(task_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_BREAK);
     }
     else {
         xmlNewProp(task_node, BAD_CAST TASK_STATUS, BAD_CAST "invalid");
@@ -1953,8 +1953,11 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
         {
             worker = &array[loop];
             if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
-                if((ngx_media_worker_status_end != worker->status)
-                    &&(ngx_media_worker_status_break != worker->status)){
+                if(ngx_media_worker_status_break == worker->status) {
+                    status = ngx_media_worker_status_break;
+                    goto end;
+                }
+                else if(ngx_media_worker_status_end != worker->status) {
                     /* try to start the next worker */
                     status = ngx_media_worker_status_running;
                 }
@@ -1963,7 +1966,7 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
         }
         part = part->next;
     }
-
+end:
     task->status = status;
 
     ngx_thread_mutex_unlock(&task->task_mtx, task->log);

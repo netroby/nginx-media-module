@@ -283,7 +283,7 @@ ngx_media_stat_list_task_html(ngx_http_request_t *r)
             status = (u_char*)TASK_COMMAND_STOP;
         }
         else if(task->status == ngx_media_worker_status_break) {
-            status = (u_char*)TASK_COMMAND_STOP;
+            status = (u_char*)TASK_COMMAND_BREAK;
         }
         else {
             status = (u_char*)TASK_COMMAND_INIT;
