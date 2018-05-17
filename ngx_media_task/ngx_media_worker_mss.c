@@ -8,6 +8,7 @@
 #define MSS_WORK_ARG_ADDR            "-mss_addr"
 #define MSS_WORK_ARG_CAMERAID        "-mss_cameraid"
 #define MSS_WORK_ARG_TYPE            "-mss_type"
+#define MSS_WORK_ARG_STREAMTYPE      "-mss_streamtype"
 #define MSS_WORK_ARG_STARTTIME       "-mss_starttime"
 #define MSS_WORK_ARG_ENDTIME         "-mss_endtime"
 #define MSS_WORK_ARG_USERNAME        "-mss_username"
@@ -103,6 +104,12 @@ ngx_media_worker_mss_args(ngx_worker_mss_ctx_t* mss_ctx,u_char* arg,u_char* valu
     }
     else if(ngx_strncmp(arg,MSS_WORK_ARG_TYPE,size) == 0) {
         ret = ngx_media_worker_arg_value_str(mss_ctx->pool,value,&mss_ctx->mss_arg.mss_type);
+        if(NGX_OK == ret) {
+            (*index)++;
+        }
+    }
+    else if(ngx_strncmp(arg,MSS_WORK_ARG_STREAMTYPE,size) == 0) {
+        ret = ngx_media_worker_arg_value_str(mss_ctx->pool,value,&mss_ctx->mss_arg.mss_streamtype);
         if(NGX_OK == ret) {
             (*index)++;
         }
@@ -329,6 +336,7 @@ ngx_media_worker_mss_create_req_msg(ngx_worker_mss_ctx_t *ctx)
             cJSON_AddItemToObject(vodInfo, "beginTime", cJSON_CreateString((char*)ctx->mss_arg.mss_starttime.data));
             cJSON_AddItemToObject(vodInfo, "endTime", cJSON_CreateString((char*)ctx->mss_arg.mss_endtime.data));
             cJSON_AddItemToObject(vodInfo, "nvrCode", cJSON_CreateString((char*)ctx->mss_arg.mss_nvrcode.data));
+            cJSON_AddItemToObject(root, "vodInfo",vodInfo);
         }
         char* msg = cJSON_PrintUnformatted(root);
         lens = ngx_strlen(msg);
@@ -414,6 +422,10 @@ ngx_media_worker_mss_url_request(ngx_worker_mss_ctx_t *ctx)
     curl_easy_setopt(ctx->mss_req, CURLOPT_URL, ctx->mss_arg.mss_addr.data);
 
     curl_easy_setopt(ctx->mss_req, CURLOPT_POSTFIELDS, (char*)ctx->mss_req_msg.data);
+
+    ngx_log_error(NGX_LOG_DEBUG, ctx->log, 0,
+                              "ngx_media_worker_mss_url_request, worker:[%V] ,request:\n%V.",
+                              &ctx->wk_ctx->wokerid,&ctx->mss_req_msg);
 
     do
     {
