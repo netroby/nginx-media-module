@@ -466,7 +466,7 @@ build_zeromq()
     tar -zxvf ${module_pack}
     
     cd zeromq*
-    ./configure --prefix=${PREFIX_ROOT}
+    ./configure --prefix=${EXTEND_ROOT}
                 
     make && make install
     
