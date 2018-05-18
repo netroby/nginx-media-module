@@ -1955,6 +1955,7 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
             if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
                 if(ngx_media_worker_status_break == worker->status) {
                     status = ngx_media_worker_status_break;
+                    ngx_thread_mutex_unlock(&worker->work_mtx, worker->log);
                     goto end;
                 }
                 else if(ngx_media_worker_status_end != worker->status) {
