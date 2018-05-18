@@ -9,7 +9,7 @@ if [ $ZLIB = NONE ]; then
     ngx_feature_name="NGX_HAVE_ZLIB"
     ngx_feature_run=no
     ngx_feature_incs="#include <zlib.h>"
-    ngx_feature_path=
+    ngx_feature_path="$ngx_addon_dir/build/extend/include/"
     ngx_feature_libs="-lz"
     ngx_feature_test="z_stream z; deflate(&z, Z_NO_FLUSH)"
     . auto/feature
@@ -33,7 +33,7 @@ if [ $OPENSSL = NONE ]; then
     ngx_feature_name="NGX_HAVE_OPENSSL_EVP"
     ngx_feature_run=no
     ngx_feature_incs="#include <openssl/evp.h>"
-    ngx_feature_path=
+    ngx_feature_path="$ngx_addon_dir/build/extend/include/"
     ngx_feature_libs="$LIB_CRYPTO $NGX_LIBDL $LIB_PTHREAD"
     ngx_feature_test="EVP_CIPHER_CTX_new();"
     . auto/feature
@@ -53,7 +53,7 @@ ngx_feature="iconv"
 ngx_feature_name="NGX_HAVE_ICONV"
 ngx_feature_run=no
 ngx_feature_incs="#include <iconv.h>"
-ngx_feature_path=
+ngx_feature_path="$ngx_addon_dir/build/extend/include/"
 ngx_feature_libs=
 ngx_feature_test="iconv_open(NULL, NULL);"
 . auto/feature
@@ -85,7 +85,7 @@ ngx_feature="libavcodec"
 ngx_feature_name="NGX_HAVE_LIB_AV_CODEC"
 ngx_feature_run=no
 ngx_feature_incs="#include <libavcodec/avcodec.h>"
-ngx_feature_path=
+ngx_feature_path="$ngx_addon_dir/build/extend/include/"
 ngx_feature_libs="$LIB_AV_CODEC"
 ngx_feature_test="avcodec_send_packet(NULL, NULL)"
 . auto/feature
@@ -100,7 +100,7 @@ ngx_feature_run=no
 ngx_feature_incs="#include <libavfilter/avfilter.h>
                   #include <libavfilter/buffersrc.h>
                   #include <libavfilter/buffersink.h>"
-ngx_feature_path=
+ngx_feature_path="$ngx_addon_dir/build/extend/include/"
 ngx_feature_libs="$LIB_AV_FILTER"
 ngx_feature_test="avfilter_register_all()"
 . auto/feature

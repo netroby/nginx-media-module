@@ -13,9 +13,9 @@ typedef unsigned __int8     uint8_t;
 #endif
 
 /********************* function begin *********************/
-ngx_int_t ngx_media_sys_stat_init();
+ngx_int_t ngx_media_sys_stat_init(ngx_cycle_t *cycle);
 
-void      ngx_media_sys_stat_release();
+void      ngx_media_sys_stat_release(ngx_cycle_t *cycle);
 
 ngx_int_t ngx_media_sys_stat_add_networdcard(u_char* strIP);
 

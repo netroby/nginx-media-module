@@ -1242,8 +1242,6 @@ ngx_media_live_send_static_file(ngx_http_request_t *r,ngx_str_t *file)
         if (!clcf->alias && clcf->root_lengths == NULL && r->args.len == 0) {
             location = file->data + clcf->root.len;
 
-            *last = '/';
-
         } else {
             if (r->args.len) {
                 len += r->args.len + 1;
