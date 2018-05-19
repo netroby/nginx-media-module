@@ -39,7 +39,7 @@ audio_encoder_is_format_supported(AVCodec *codec, enum AVSampleFormat sample_fmt
 void
 audio_encoder_process_init(vod_log_t* log)
 {
-	avcodec_register_all();
+	//avcodec_register_all();
 
 	encoder_codec = avcodec_find_encoder_by_name(AAC_ENCODER_NAME);
 	if (encoder_codec == NULL)
@@ -132,7 +132,7 @@ audio_encoder_free(
 	{
 		return;
 	}
-	
+
 	avcodec_close(state->encoder);
 	av_free(state->encoder);
 }

@@ -54,7 +54,7 @@ ngx_feature_name="NGX_HAVE_ICONV"
 ngx_feature_run=no
 ngx_feature_incs="#include <iconv.h>"
 ngx_feature_path="$ngx_addon_dir/build/extend/include/"
-ngx_feature_libs=
+ngx_feature_libs="-liconv"
 ngx_feature_test="iconv_open(NULL, NULL);"
 . auto/feature
 
