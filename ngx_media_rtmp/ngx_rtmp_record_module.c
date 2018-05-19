@@ -1319,8 +1319,6 @@ ngx_rtmp_record_recorder(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static ngx_int_t
 ngx_rtmp_record_init_process(ngx_cycle_t *cycle)
 {
-    /* init the ffmpeg */
-    av_register_all();
     return NGX_OK;
 }
 
