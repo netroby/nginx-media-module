@@ -267,6 +267,7 @@ ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_common/ngx_media_include.h        
                      $ngx_addon_dir/ngx_media_vod/vod/aes_defs.h                       \
                      $ngx_addon_dir/ngx_media_vod/vod/avc_defs.h                       \
                      $ngx_addon_dir/ngx_media_vod/vod/avc_parser.h                     \
+                     $ngx_addon_dir/ngx_media_vod/vod/avc_hevc_parser.h                \
                      $ngx_addon_dir/ngx_media_vod/vod/bit_read_stream.h                \
                      $ngx_addon_dir/ngx_media_vod/vod/buffer_pool.h                    \
                      $ngx_addon_dir/ngx_media_vod/vod/codec_config.h                   \
@@ -289,6 +290,7 @@ ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_common/ngx_media_include.h        
                      $ngx_addon_dir/ngx_media_vod/vod/hds/hds_encryption.h             \
                      $ngx_addon_dir/ngx_media_vod/vod/hds/hds_fragment.h               \
                      $ngx_addon_dir/ngx_media_vod/vod/hds/hds_manifest.h               \
+                     $ngx_addon_dir/ngx_media_vod/vod/hevc_parser.h                    \
                      $ngx_addon_dir/ngx_media_vod/vod/hls/adts_encoder_filter.h        \
                      $ngx_addon_dir/ngx_media_vod/vod/hls/aes_cbc_encrypt.h            \
                      $ngx_addon_dir/ngx_media_vod/vod/hls/bit_fields.h                 \
@@ -308,6 +310,7 @@ ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_common/ngx_media_include.h        
                      $ngx_addon_dir/ngx_media_vod/vod/input/frames_source_cache.h      \
                      $ngx_addon_dir/ngx_media_vod/vod/input/frames_source_memory.h     \
                      $ngx_addon_dir/ngx_media_vod/vod/input/read_cache.h               \
+                     $ngx_addon_dir/ngx_media_vod/vod/input/silence_generator.h        \
                      $ngx_addon_dir/ngx_media_vod/vod/json_parser.h                    \
                      $ngx_addon_dir/ngx_media_vod/vod/language_code.h                  \
                      $ngx_addon_dir/ngx_media_vod/vod/languages_hash_params.h          \
@@ -352,7 +355,9 @@ ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_common/ngx_media_include.h        
                      $ngx_addon_dir/ngx_media_vod/vod/write_buffer.h                   \
                      $ngx_addon_dir/ngx_media_vod/vod/write_buffer_queue.h             \
                      $ngx_addon_dir/ngx_media_vod/vod/write_stream.h                   \
-                     $ngx_addon_dir/ngx_media_live/ngx_media_live_module.h             \
+                     $ngx_addon_dir/ngx_media_vod/ngx_http_vod_thumb.h                 \
+                     $ngx_addon_dir/ngx_media_vod/ngx_http_vod_thumb_commands.h        \
+		     $ngx_addon_dir/ngx_media_live/ngx_media_live_module.h             \
                      $ngx_addon_dir/ngx_media_zmq/ngx_zmq_conn_pool.h                  \
                     "
 
@@ -399,6 +404,7 @@ ALLMEDIA_HTTP_FILTER_SRCS="
                      $ngx_addon_dir/ngx_media_vod/ngx_http_vod_volume_map.c            \
                      $ngx_addon_dir/ngx_media_vod/ngx_perf_counters.c                  \
                      $ngx_addon_dir/ngx_media_vod/vod/avc_parser.c                     \
+                     $ngx_addon_dir/ngx_media_vod/vod/avc_hevc_parser.c                \
                      $ngx_addon_dir/ngx_media_vod/vod/buffer_pool.c                    \
                      $ngx_addon_dir/ngx_media_vod/vod/codec_config.c                   \
                      $ngx_addon_dir/ngx_media_vod/vod/common.c                         \
@@ -418,6 +424,7 @@ ALLMEDIA_HTTP_FILTER_SRCS="
                      $ngx_addon_dir/ngx_media_vod/vod/hds/hds_amf0_encoder.c           \
                      $ngx_addon_dir/ngx_media_vod/vod/hds/hds_fragment.c               \
                      $ngx_addon_dir/ngx_media_vod/vod/hds/hds_manifest.c               \
+                     $ngx_addon_dir/ngx_media_vod/vod/hevc_parser.c                    \
                      $ngx_addon_dir/ngx_media_vod/vod/hls/adts_encoder_filter.c        \
                      $ngx_addon_dir/ngx_media_vod/vod/hls/aes_cbc_encrypt.c            \
                      $ngx_addon_dir/ngx_media_vod/vod/hls/buffer_filter.c              \
@@ -433,6 +440,7 @@ ALLMEDIA_HTTP_FILTER_SRCS="
                      $ngx_addon_dir/ngx_media_vod/vod/input/frames_source_cache.c      \
                      $ngx_addon_dir/ngx_media_vod/vod/input/frames_source_memory.c     \
                      $ngx_addon_dir/ngx_media_vod/vod/input/read_cache.c               \
+                     $ngx_addon_dir/ngx_media_vod/vod/input/silence_generator.c        \
                      $ngx_addon_dir/ngx_media_vod/vod/json_parser.c                    \
                      $ngx_addon_dir/ngx_media_vod/vod/language_code.c                  \
                      $ngx_addon_dir/ngx_media_vod/vod/manifest_utils.c                 \
