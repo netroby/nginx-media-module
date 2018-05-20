@@ -13,9 +13,10 @@
           <param name="mss_endtime" value="2018-05-08 14:19:49"/>
           <param name="mss_username" value="$(username)"/>
           <param name="mss_password" value="$(password)"/>
-          <param name="max_muxing_queue_size" value="1024"/>
+          <param name="max_muxing_queue_size" value="128"/>
+          <param name="t" value="480"/>
           <param name="vcodec" value="copy"/>
-          <param name="acodec" value="aac"/>
+          <param name="an" />
           <param name="vbsf" value="h264_mp4toannexb"/>
           <param name="dst" value="$(wkspace)/0.ts"/>
         </params>
@@ -33,9 +34,10 @@
           <param name="mss_endtime" value="2018-05-08 14:19:49"/>
           <param name="mss_username" value="$(username)"/>
           <param name="mss_password" value="$(password)"/>
-          <param name="max_muxing_queue_size" value="1024"/>
+          <param name="max_muxing_queue_size" value="128"/>
+           <param name="t" value="480"/>
           <param name="vcodec" value="copy"/>
-          <param name="acodec" value="aac"/>
+          <param name="an" />
           <param name="vbsf" value="h264_mp4toannexb"/>
           <param name="dst" value="$(wkspace)/1.ts"/>
         </params>
@@ -47,7 +49,7 @@
         <params>
           <param name="src" value="concat:$(wkspace)/0.ts|$(wkspace)/1.ts"/>
           <param name="vcodec" value="copy"/>
-          <param name="acodec" value="copy"/>
+          <param name="an" />
           <param name="absf" value="aac_adtstoasc"/>
           <param name="dst" value="$(wkspace)/vod_jion_1525866110183_835.mp4"/>
         </params>
