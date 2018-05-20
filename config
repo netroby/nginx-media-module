@@ -13,6 +13,9 @@ if [ $ZLIB = NONE ]; then
     ngx_feature_libs="-lz"
     ngx_feature_test="z_stream z; deflate(&z, Z_NO_FLUSH)"
     . auto/feature
+	if [ $ngx_found = yes ]; then
+		ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
+	fi
 else
     cat << END >> $NGX_AUTO_CONFIG_H
 
@@ -37,6 +40,9 @@ if [ $OPENSSL = NONE ]; then
     ngx_feature_libs="$LIB_CRYPTO $NGX_LIBDL $LIB_PTHREAD"
     ngx_feature_test="EVP_CIPHER_CTX_new();"
     . auto/feature
+	if [ $ngx_found = yes ]; then
+		ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
+	fi
 else
     cat << END >> $NGX_AUTO_CONFIG_H
 
@@ -74,6 +80,10 @@ if [ $ngx_found != yes ]; then
     ngx_feature="clock_gettime() in librt"
     ngx_feature_libs="-lrt"
     . auto/feature
+
+    if [ $ngx_found = yes ]; then
+        ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
+    fi
 fi
 
 # libavcodec
@@ -90,6 +100,10 @@ ngx_feature_libs="$LIB_AV_CODEC"
 ngx_feature_test="avcodec_send_packet(NULL, NULL)"
 . auto/feature
 
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs $LIB_AV_CODEC $LIB_AV_UTIL -lm"
+fi
+
 # libavfilter
 #
 LIB_AV_FILTER=${LIB_AV_FILTER:--lavfilter}
@@ -105,6 +119,10 @@ ngx_feature_libs="$LIB_AV_FILTER"
 ngx_feature_test="avfilter_register_all()"
 . auto/feature
 
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs $LIB_AV_FILTER $LIB_AV_UTIL"
+fi
+
 # libxml2
 #
 ngx_feature="libxml2"
@@ -117,6 +135,10 @@ ngx_feature_libs="-lxml2"
 ngx_feature_test="xmlReadMemory(NULL, 0, NULL, NULL, 0);"
 . auto/feature
 
+if [ $ngx_found = yes ]; then
+    ngx_module_incs="$ngx_module_incs $ngx_feature_path"
+    ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
+fi
 CORE_MODULES="$CORE_MODULES
                 "
 

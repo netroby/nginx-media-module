@@ -95,11 +95,11 @@ typedef struct {
 #endif
 } audio_filter_init_context_t;
 
-static vod_status_t
+static vod_status_t 
 audio_filter_walk_filters_prepare_init(
-	audio_filter_init_context_t* state,
-	media_clip_t** clip_ptr,
-	uint32_t speed_num,
+	audio_filter_init_context_t* state, 
+	media_clip_t** clip_ptr, 
+	uint32_t speed_num, 
 	uint32_t speed_denom)
 {
 	media_clip_rate_filter_t* rate_filter;
@@ -114,9 +114,8 @@ audio_filter_walk_filters_prepare_init(
 	uint32_t cur_frame_count;
 	uint32_t source_count;
 
-	switch (clip->type)
+	if (media_clip_is_source(clip->type))
 	{
-	case MEDIA_CLIP_SOURCE:
 		source = vod_container_of(clip, media_clip_source_t, base);
 
 		audio_track = NULL;
@@ -151,7 +150,10 @@ audio_filter_walk_filters_prepare_init(
 			state->output_frame_count = cur_frame_count;
 		}
 		return VOD_OK;
+	}
 
+	switch (clip->type)
+	{
 	case MEDIA_CLIP_RATE_FILTER:
 		rate_filter = vod_container_of(clip, media_clip_rate_filter_t, base);
 		speed_num = ((uint64_t)speed_num * rate_filter->rate.num) / rate_filter->rate.denom;
@@ -210,7 +212,7 @@ audio_filter_walk_filters_prepare_init(
 
 typedef struct {
 	request_context_t* request_context;
-
+	
 	// ffmpeg filter
 	AVFilterGraph *filter_graph;
 	AVFrame *filtered_frame;
@@ -244,7 +246,7 @@ static const uint64_t aac_channel_layout[] = {
 	AV_CH_LAYOUT_7POINT1_WIDE_BACK,
 };
 
-void
+void 
 audio_filter_process_init(vod_log_t* log)
 {
 	//avfilter_register_all();
@@ -273,7 +275,7 @@ audio_filter_init_source(
 	request_context_t* request_context,
 	AVFilterGraph *filter_graph,
 	const u_char* source_name,
-	audio_filter_source_t* source,
+	audio_filter_source_t* source, 
 	AVFilterInOut** outputs)
 {
 	char filter_args[sizeof(BUFFERSRC_ARGS_FORMAT) + 4 * VOD_INT64_LEN + MAX_SAMPLE_FORMAT_NAME_LEN];
@@ -368,7 +370,7 @@ audio_filter_init_sink(
 	uint64_t channel_layout,
 	uint32_t sample_rate,
 	const u_char* sink_name,
-	audio_filter_sink_t* sink,
+	audio_filter_sink_t* sink, 
 	AVFilterInOut** inputs)
 {
 	AVFilterInOut* input_link;
@@ -466,7 +468,7 @@ audio_filter_init_sink(
 	return VOD_OK;
 }
 
-static vod_status_t
+static vod_status_t 
 audio_filter_init_sources_and_graph_desc(audio_filter_init_context_t* state, media_clip_t* clip)
 {
 	audio_filter_source_t* cur_source;
@@ -478,7 +480,7 @@ audio_filter_init_sources_and_graph_desc(audio_filter_init_context_t* state, med
 	u_char filter_name[VOD_INT32_LEN + 1];
 	vod_status_t rc;
 
-	if (clip->type == MEDIA_CLIP_SOURCE)
+	if (media_clip_is_source(clip->type))
 	{
 		source = vod_container_of(clip, media_clip_source_t, base);
 
@@ -589,7 +591,7 @@ audio_filter_alloc_state(
 		return VOD_UNEXPECTED;
 	}
 
-	if (clip->type == MEDIA_CLIP_SOURCE)
+	if (media_clip_is_source(clip->type))
 	{
 		// got left with a source, following a mix of a single source, nothing to do
 		return VOD_OK;
@@ -618,7 +620,7 @@ audio_filter_alloc_state(
 		return VOD_ALLOC_FAILED;
 	}
 	vod_memzero(state, sizeof(*state));
-
+	
 	// add to the cleanup pool
 	cln = vod_pool_cleanup_add(request_context->pool, 0);
 	if (cln == NULL)
@@ -641,7 +643,7 @@ audio_filter_alloc_state(
 	}
 
 	// allocate the graph desc and sources
-	init_context.graph_desc = vod_alloc(request_context->pool, init_context.graph_desc_size +
+	init_context.graph_desc = vod_alloc(request_context->pool, init_context.graph_desc_size + 
 		sizeof(state->sources[0]) * init_context.source_count);
 	if (init_context.graph_desc == NULL)
 	{
@@ -724,7 +726,7 @@ audio_filter_alloc_state(
 		rc = VOD_UNEXPECTED;
 		goto end;
 	}
-
+	
 	// initialize the encoder
 	sink_link = state->sink.buffer_sink->inputs[0];
 	if (sink_link->time_base.num != 1)
@@ -777,7 +779,7 @@ audio_filter_alloc_state(
 			av_buffersink_set_frame_size(state->sink.buffer_sink, frame_size);
 		}
 	}
-
+	
 	// allocate frame
 	state->filtered_frame = av_frame_alloc();
 	if (state->filtered_frame == NULL)
@@ -824,19 +826,19 @@ audio_filter_free_state(void* context)
 	{
 		audio_decoder_free(&sources_cur->decoder);
 	}
-
+	
 	if (state->sink.encoder != NULL && state->sink.encoder->free != NULL)
 	{
 		state->sink.encoder->free(state->sink.encoder_context);
 	}
-
+	
 	avfilter_graph_free(&state->filter_graph);
 	av_frame_free(&state->filtered_frame);
 
 	vod_memzero(state, sizeof(*state));		// support calling free twice
 }
 
-static vod_status_t
+static vod_status_t 
 audio_filter_update_track(audio_filter_state_t* state)
 {
 	media_track_t* output = state->output;
@@ -921,13 +923,13 @@ audio_filter_update_track(audio_filter_state_t* state)
 			return rc;
 		}
 	}
-
+		
 	// add the new frame count and size
 	state->sequence->total_frame_count += output->frame_count;
 	state->sequence->total_frame_size += output->total_frames_size;
 
 	// TODO: update raw_atoms
-
+	
 	return VOD_OK;
 }
 
@@ -939,7 +941,7 @@ audio_filter_append_debug_data(const char* source, const char* extension, const 
 	FILE* fp;
 
 	sprintf(file_path, "%s%s.%s", AUDIO_FILTER_DEBUG_PATH, source, extension);
-
+		
 	fp = fopen(file_path, "a");
 	if (fp == NULL)
 	{
@@ -994,7 +996,7 @@ audio_filter_read_filter_sink(audio_filter_state_t* state)
 	return VOD_OK;
 }
 
-static vod_status_t
+static vod_status_t 
 audio_filter_process_frame(audio_filter_state_t* state, AVFrame* frame)
 {
 	audio_filter_source_t* source = state->cur_source;
@@ -1004,16 +1006,16 @@ audio_filter_process_frame(audio_filter_state_t* state, AVFrame* frame)
 	size_t data_size;
 
 	data_size = av_samples_get_buffer_size(
-		NULL,
+		NULL, 
 		frame->channels,
 		frame->nb_samples,
 		frame->format,
 		1);
 	audio_filter_append_debug_data(source->buffer_src->name, "pcm", frame->data[0], data_size);
 #endif // AUDIO_FILTER_DEBUG
-
+	
 	avrc = av_buffersrc_add_frame_flags(source->buffer_src, frame, AV_BUFFERSRC_FLAG_PUSH);
-	if (avrc < 0)
+	if (avrc < 0) 
 	{
 		vod_log_error(VOD_LOG_ERR, state->request_context->log, 0,
 			"audio_filter_process_frame: av_buffersrc_add_frame_flags failed %d", avrc);
@@ -1154,7 +1156,7 @@ audio_filter_process(void* context)
 #else
 
 // empty stubs in case libavfilter/libavcodec are missing
-void
+void 
 audio_filter_process_init(vod_log_t* log)
 {
 }
@@ -1192,7 +1194,7 @@ audio_filter_alloc_state(
 		return VOD_UNEXPECTED;
 	}
 
-	if (clip->type == MEDIA_CLIP_SOURCE)
+	if (media_clip_is_source(clip->type))
 	{
 		// got left with a source, following a mix of a single source, nothing to do
 		return VOD_OK;
@@ -1203,12 +1205,12 @@ audio_filter_alloc_state(
 	return VOD_UNEXPECTED;
 }
 
-void
+void 
 audio_filter_free_state(void* context)
 {
 }
 
-vod_status_t
+vod_status_t 
 audio_filter_process(void* context)
 {
 	return VOD_UNEXPECTED;

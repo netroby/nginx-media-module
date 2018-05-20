@@ -1,9 +1,7 @@
 #include "volume_map.h"
-
-#if (VOD_HAVE_LIB_AV_CODEC)
-
 #include "audio_filter.h"
 #include "audio_decoder.h"
+#include "../write_buffer.h"
 
 // constants
 #define RMS_LEVEL_PRECISION (100)
@@ -374,9 +372,9 @@ volume_map_writer_process(void* context)
 {
 	volume_map_writer_state_t* state = context;
 	volume_map_frame_t data_buf;
-	volume_map_frame_t* data;
+	volume_map_frame_t* data = NULL;
 	vod_status_t rc;
-	int64_t pts;
+	int64_t pts = 0;
 
 	for (;;)
 	{
@@ -442,5 +440,3 @@ volume_map_writer_process(void* context)
 		}
 	}
 }
-
-#endif // (VOD_HAVE_LIB_AV_CODEC)
