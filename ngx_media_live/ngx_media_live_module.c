@@ -389,7 +389,8 @@ ngx_media_live_hls_handler(ngx_http_request_t *r)
     ngx_str_t                      arg;
     ngx_media_live_session_info   *info;
     ngx_str_t                      buffer;
-    u_char                         token[MEDIA_LIVE_TOKEN_MAX];
+    u_char                         key[MEDIA_LIVE_TOKEN_MAX];
+    uint32_t                       token;
 
 
     if (r->uri.data[r->uri.len - 1] == '/') {
@@ -437,12 +438,12 @@ ngx_media_live_hls_handler(ngx_http_request_t *r)
         return ngx_media_live_hls_first_req(r);
     }
 
-    ngx_memzero(token, MEDIA_LIVE_TOKEN_MAX);
-    last = ngx_snprintf(token,MEDIA_LIVE_TOKEN_MAX-1,"%V", &arg);
+    ngx_memzero(key, MEDIA_LIVE_TOKEN_MAX);
+    last = ngx_snprintf(key,MEDIA_LIVE_TOKEN_MAX-1,"%V", &arg);
     *last = '\0';
 
     /* 4.real file request with session token,so update the session info */
-    if(!ngx_buffer_cache_fetch(conf->session,token,&buffer)) {
+    if(!ngx_buffer_cache_fetch(conf->session,key,&buffer,&token)) {
         return NGX_HTTP_NOT_FOUND;
     }
     info = (ngx_media_live_session_info*)buffer.data;
@@ -452,7 +453,7 @@ ngx_media_live_hls_handler(ngx_http_request_t *r)
 
     if((5 < reqfile.len)
         &&(NULL != ngx_strstr(reqfile.data,MEDIA_LIVE_M3U8))) {
-        return ngx_media_live_hls_m3u8_req(r,&reqfile,ngx_file_size(&fi),token);
+        return ngx_media_live_hls_m3u8_req(r,&reqfile,ngx_file_size(&fi),key);
     }
     /* ts file response direct */
     return ngx_media_live_send_static_file(r,&reqfile);
@@ -659,6 +660,7 @@ ngx_media_live_check_session(ngx_event_t *ev)
     ngx_queue_t                  *q,*t;
     ngx_media_live_session_t     *s;
     ngx_str_t                     b;
+    uint32_t                      token;
     ngx_media_live_session_info  *info;
     ngx_media_live_session_ctx_t *ctx;
     ngx_media_live_loc_conf_t    *conf
@@ -673,7 +675,7 @@ ngx_media_live_check_session(ngx_event_t *ev)
          q != ngx_queue_sentinel(&ctx->used);) {
         t = ngx_queue_next(q);
         s = ngx_queue_data(q, ngx_media_live_session_t, node);
-        if(!ngx_buffer_cache_fetch(conf->session,s->name.data,&b)) {
+        if(!ngx_buffer_cache_fetch(conf->session,s->name.data,&b,&token)) {
             /* the share cache is not exist,so free the session */
             ngx_media_live_report_session_status(s,ngx_media_live_session_stop,&conf->on_play_done,NULL);
             ngx_queue_remove(q);
