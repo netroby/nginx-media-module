@@ -2,143 +2,64 @@ ngx_addon_name="ngx_media_module"
 
 echo "#define NGINX_VOD_VERSION \""allmedia_vod 1.0.0"\"" > $NGX_OBJS/ngx_vod_version.h
 
-# zlib
-#
-if [ $ZLIB = NONE ]; then
-    ngx_feature="zlib library"
-    ngx_feature_name="NGX_HAVE_ZLIB"
-    ngx_feature_run=no
-    ngx_feature_incs="#include <zlib.h>"
-    ngx_feature_path="$ngx_addon_dir/build/extend/include/"
-    ngx_feature_libs="-lz"
-    ngx_feature_test="z_stream z; deflate(&z, Z_NO_FLUSH)"
-    . auto/feature
-	if [ $ngx_found = yes ]; then
-		ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
-	fi
-else
-    cat << END >> $NGX_AUTO_CONFIG_H
+cat << END >> $NGX_AUTO_CONFIG_H
 
 #ifndef NGX_HAVE_ZLIB
 #define NGX_HAVE_ZLIB  1
 #endif
 
 END
-fi
 
-# openssl evp
-#
-if [ $OPENSSL = NONE ]; then
-    LIB_CRYPTO=${LIB_CRYPTO:--lcrypto}
-    LIB_PTHREAD=${LIB_PTHREAD:--lpthread}
-
-    ngx_feature="OpenSSL EVP library"
-    ngx_feature_name="NGX_HAVE_OPENSSL_EVP"
-    ngx_feature_run=no
-    ngx_feature_incs="#include <openssl/evp.h>"
-    ngx_feature_path="$ngx_addon_dir/build/extend/include/"
-    ngx_feature_libs="$LIB_CRYPTO $NGX_LIBDL $LIB_PTHREAD"
-    ngx_feature_test="EVP_CIPHER_CTX_new();"
-    . auto/feature
-	if [ $ngx_found = yes ]; then
-		ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
-	fi
-else
-    cat << END >> $NGX_AUTO_CONFIG_H
+cat << END >> $NGX_AUTO_CONFIG_H
 
 #ifndef NGX_HAVE_OPENSSL_EVP
 #define NGX_HAVE_OPENSSL_EVP  1
 #endif
 
 END
-fi
 
-# iconv
-#
-ngx_feature="iconv"
-ngx_feature_name="NGX_HAVE_ICONV"
-ngx_feature_run=no
-ngx_feature_incs="#include <iconv.h>"
-ngx_feature_path="$ngx_addon_dir/build/extend/include/"
-ngx_feature_libs="-liconv"
-ngx_feature_test="iconv_open(NULL, NULL);"
-. auto/feature
+cat << END >> $NGX_AUTO_CONFIG_H
 
-# clock_gettime
-#
-ngx_feature="clock_gettime()"
-ngx_feature_name="NGX_HAVE_CLOCK_GETTIME"
-ngx_feature_run=no
-ngx_feature_incs="#include <sched.h>"
-ngx_feature_path=
-ngx_feature_libs=
-ngx_feature_test="clock_gettime()"
-. auto/feature
+#ifndef NGX_HAVE_ICONV
+#define NGX_HAVE_ICONV  1
+#endif
 
-if [ $ngx_found != yes ]; then
+END
 
-    ngx_feature="clock_gettime() in librt"
-    ngx_feature_libs="-lrt"
-    . auto/feature
+cat << END >> $NGX_AUTO_CONFIG_H
 
-    if [ $ngx_found = yes ]; then
-        ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
-    fi
-fi
+#ifndef NGX_HAVE_CLOCK_GETTIME
+#define NGX_HAVE_CLOCK_GETTIME  1
+#endif
 
-# libavcodec
-#
-LIB_AV_UTIL=${LIB_AV_UTIL:--lavutil}
-LIB_AV_CODEC=${LIB_AV_CODEC:--lavcodec}
+END
 
-ngx_feature="libavcodec"
-ngx_feature_name="NGX_HAVE_LIB_AV_CODEC"
-ngx_feature_run=no
-ngx_feature_incs="#include <libavcodec/avcodec.h>"
-ngx_feature_path="$ngx_addon_dir/build/extend/include/"
-ngx_feature_libs="$LIB_AV_CODEC"
-ngx_feature_test="avcodec_send_packet(NULL, NULL)"
-. auto/feature
+cat << END >> $NGX_AUTO_CONFIG_H
 
-if [ $ngx_found = yes ]; then
-    ngx_module_libs="$ngx_module_libs $LIB_AV_CODEC $LIB_AV_UTIL -lm"
-fi
+#ifndef NGX_HAVE_LIB_AV_CODEC
+#define NGX_HAVE_LIB_AV_CODEC  1
+#endif
 
-# libavfilter
-#
-LIB_AV_FILTER=${LIB_AV_FILTER:--lavfilter}
+END
 
-ngx_feature="libavfilter"
-ngx_feature_name="NGX_HAVE_LIB_AV_FILTER"
-ngx_feature_run=no
-ngx_feature_incs="#include <libavfilter/avfilter.h>
-                  #include <libavfilter/buffersrc.h>
-                  #include <libavfilter/buffersink.h>"
-ngx_feature_path="$ngx_addon_dir/build/extend/include/"
-ngx_feature_libs="$LIB_AV_FILTER"
-ngx_feature_test="avfilter_register_all()"
-. auto/feature
+cat << END >> $NGX_AUTO_CONFIG_H
 
-if [ $ngx_found = yes ]; then
-    ngx_module_libs="$ngx_module_libs $LIB_AV_FILTER $LIB_AV_UTIL"
-fi
+#ifndef NGX_HAVE_LIB_AV_FILTER
+#define NGX_HAVE_LIB_AV_FILTER  1
+#endif
 
-# libxml2
-#
-ngx_feature="libxml2"
-ngx_feature_name="NGX_HAVE_LIBXML2"
-ngx_feature_run=no
-ngx_feature_incs="#include <libxml/parser.h>
-                  #include <libxml/tree.h>"
-ngx_feature_path="$ngx_addon_dir/build/extend/include/libxml2"
-ngx_feature_libs="-lxml2"
-ngx_feature_test="xmlReadMemory(NULL, 0, NULL, NULL, 0);"
-. auto/feature
+END
 
-if [ $ngx_found = yes ]; then
-    ngx_module_incs="$ngx_module_incs $ngx_feature_path"
-    ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
-fi
+cat << END >> $NGX_AUTO_CONFIG_H
+
+#ifndef NGX_HAVE_LIBXML2
+#define NGX_HAVE_LIBXML2  1
+#endif
+
+END
+
+
+
 CORE_MODULES="$CORE_MODULES
                 "
 
@@ -514,7 +435,7 @@ ALLMEDIA_CORE_SRCS=" $ngx_addon_dir/ngx_media_rtmp/ngx_rtmp.c                   
 ALLMEDIA_LIBS="
                      -L$ngx_addon_dir/build/extend/lib/ -Wl,-Bstatic                   \
                      -lMediaKenerl -lavfilter -lswscale -lavdevice -lavformat          \
-                     -lavcodec  -lavutil -lswresample -lpostproc -lx264                \
+                     -lavcodec -lavfilter -lavutil -lswresample -lpostproc -lx264      \
                      -lfaac -lfaad -lmp3lame -lxml2 -liconv -llzma -lbz2               \
                      -lzookeeper_mt -lcjson  -lfdk-aac -lfreetype -lvidstab            \
                      -lopencore-amrnb -lopencore-amrwb  -lopenjp2 -lopus -lspeex       \
