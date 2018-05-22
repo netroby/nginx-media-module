@@ -757,10 +757,7 @@ ngx_media_task_report_create_request(ngx_media_task_t *task,
     xmlNewProp(result_node, BAD_CAST "describe", BAD_CAST ERROR_MSG[task->error_code]);
     xmlAddChild(task_node, result_node);
 
-    xmlAddChild(report_node, task_node);
-
     works_node = xmlNewNode(NULL, BAD_CAST "workers");
-
     part  = &(task->workers->part);
     while (part)
     {
@@ -785,7 +782,10 @@ ngx_media_task_report_create_request(ngx_media_task_t *task,
                 *last = '\0';
                 xmlNewProp(work_node, BAD_CAST TASK_XML_WORKER_MASTER, BAD_CAST buf);
 
-                if(worker->status == ngx_media_worker_status_start) {
+                if(worker->status == ngx_media_worker_status_init) {
+                    xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_INIT);
+                }
+                else if(worker->status == ngx_media_worker_status_start) {
                     xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_START);
                 }
                 else if(worker->status == ngx_media_worker_status_running) {
@@ -800,13 +800,17 @@ ngx_media_task_report_create_request(ngx_media_task_t *task,
                 else {
                     xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST "invalid");
                 }
-                xmlAddChild(work_node, works_node);
+                xmlAddChild(works_node,work_node);
                 ngx_thread_mutex_unlock(&worker->work_mtx, worker->log);
             }
         }
         part = part->next;
     }
-    xmlAddChild(works_node, task_node);
+
+    xmlAddChild(task_node, works_node);
+
+    xmlAddChild(report_node, task_node);
+
 
 
     xmlDocDumpFormatMemory(doc, &xmlbuff, &buffersize, 1);
