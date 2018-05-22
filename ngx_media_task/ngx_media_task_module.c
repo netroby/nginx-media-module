@@ -39,20 +39,7 @@
 
 #define NGX_HTTP_STATIC_TASK_TIMER  60000
 
-
-
-enum HTTP_VIDEO_ERROR_CODE
-{
-   HTTP_VIDEO_ERROR_CODE_OK               = 0x0000, /*success*/
-   HTTP_VIDEO_ERROR_CODE_XML_ERROR        = 0x0001, /*xml error*/
-   HTTP_VIDEO_ERROR_CODE_PARAM_ERROR      = 0x0002, /*param error*/
-   HTTP_VIDEO_ERROR_CODE_TASK_EXIST       = 0x0003, /*the task is existed */
-   HTTP_VIDEO_ERROR_CODE_TASK_NO_EXIST    = 0x0004, /*the task is not existed */
-   HTTP_VIDEO_ERROR_CODE_CREATE_TASK_FAIL = 0x0005, /*creat task fail */
-   HTTP_VIDEO_ERROR_CODE_SYS_ERROR                  /*System error or unknow error*/
-};
-
-static char* ERROR_MSG[] ={
+static const char* ERROR_MSG[] ={
     "success",
     "xml error",
     "param error",
@@ -109,7 +96,7 @@ static int       ngx_media_task_stop_task(ngx_str_t* taskid);
 static int       ngx_media_task_update_task(xmlDocPtr doc);
 static void      ngx_media_task_check_task(ngx_event_t *ev);
 static ngx_int_t ngx_media_task_check_task_exist(u_char* taskID);
-static void      ngx_media_task_worker_watcher(ngx_uint_t status,ngx_media_worker_ctx_t* ctx);
+static void      ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t errno,ngx_media_worker_ctx_t* ctx);
 static void      ngx_media_task_dump_info(ngx_media_task_t* task);
 static void      ngx_media_task_check_static_task(ngx_event_t *ev);
 static ngx_int_t ngx_media_task_deal_static_xml(ngx_tree_ctx_t *ctx, ngx_str_t *path);
@@ -437,6 +424,7 @@ ngx_media_task_create_task(ngx_media_main_conf_t *conf)
     task->next_task   = NULL;
     ngx_str_null(&task->xml);
     task->status      = ngx_media_worker_status_init;
+    task->error_code  = NGX_MEDIA_ERROR_CODE_OK;
     task->workers     = ngx_list_create(task->pool,NGX_HTTP_TRANS_WOEKER_MAX,sizeof(ngx_media_worker_ctx_t));
 
     ngx_memzero(&task->time_event, sizeof(ngx_event_t));
@@ -718,6 +706,7 @@ ngx_media_task_report_create_request(ngx_media_task_t *task,
     xmlDocPtr                       doc         = NULL;/* document pointer */
     xmlNodePtr                      report_node = NULL;
     xmlNodePtr                      task_node   = NULL;
+    xmlNodePtr                      result_node = NULL;
     xmlChar                        *xmlbuff     = NULL;
     int                             buffersize  = 0;
     u_char                         *last        = NULL;
@@ -754,6 +743,15 @@ ngx_media_task_report_create_request(ngx_media_task_t *task,
     else {
         xmlNewProp(task_node, BAD_CAST TASK_STATUS, BAD_CAST "invalid");
     }
+
+    result_node = xmlNewNode(NULL, BAD_CAST "result");
+    ngx_memzero(&buf, 128);
+    last = ngx_snprintf(buf, 128, "%d", task->error_code);
+    *last = '\0';
+    xmlNewProp(result_node, BAD_CAST "errorcode", BAD_CAST buf);
+    xmlNewProp(result_node, BAD_CAST "describe", BAD_CAST ERROR_MSG[task->error_code]);
+    xmlAddChild(task_node, result_node);
+
     xmlAddChild(report_node, task_node);
 
 
@@ -1244,8 +1242,8 @@ ngx_media_task_error_xml(ngx_http_request_t *r,ngx_chain_t* out,
     u_char   errorbuf[TRANS_STRING_MAX_LEN];
     ngx_memzero(&errorbuf, TRANS_STRING_MAX_LEN);
 
-    if((0>errcode)||(HTTP_VIDEO_ERROR_CODE_SYS_ERROR < errcode)) {
-        errcode = HTTP_VIDEO_ERROR_CODE_SYS_ERROR;
+    if((0>errcode)||(NGX_MEDIA_ERROR_CODE_SYS_ERROR < errcode)) {
+        errcode = NGX_MEDIA_ERROR_CODE_SYS_ERROR;
     }
 
     last  = ngx_snprintf(errorbuf, TRANS_STRING_MAX_LEN,"%d", errcode);
@@ -1413,42 +1411,42 @@ ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc)
     curNode = xmlDocGetRootElement(doc);
     if (NULL == curNode)
     {
-       return HTTP_VIDEO_ERROR_CODE_XML_ERROR;
+       return NGX_MEDIA_ERROR_CODE_XML_ERROR;
     }
 
     if (xmlStrcmp(curNode->name, BAD_CAST "req"))
     {
-       return HTTP_VIDEO_ERROR_CODE_XML_ERROR;
+       return NGX_MEDIA_ERROR_CODE_XML_ERROR;
     }
 
     curNode = curNode->children;
 
     if (xmlStrcmp(curNode->name, BAD_CAST "task"))
     {
-       return HTTP_VIDEO_ERROR_CODE_XML_ERROR;
+       return NGX_MEDIA_ERROR_CODE_XML_ERROR;
     }
 
     attr_value = xmlGetProp(curNode,BAD_CAST "taskid");
     if(NULL == attr_value){
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
                                  "ngx http video task start task ,get task id fail.");
-        return HTTP_VIDEO_ERROR_CODE_XML_ERROR;
+        return NGX_MEDIA_ERROR_CODE_XML_ERROR;
     }
 
     if(NGX_OK == ngx_media_task_check_task_exist((u_char*)attr_value)) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
                                  "ngx http video task start task ,the  task id exist.");
-        return HTTP_VIDEO_ERROR_CODE_TASK_EXIST;
+        return NGX_MEDIA_ERROR_CODE_TASK_EXIST;
     }
 
     task = ngx_media_task_create_task(conf);
     if (task == NULL) {
-        return HTTP_VIDEO_ERROR_CODE_CREATE_TASK_FAIL;
+        return NGX_MEDIA_ERROR_CODE_CREATE_TASK_FAIL;
     }
 
     if (ngx_thread_mutex_lock(&task->task_mtx, task->log) != NGX_OK) {
         ngx_media_task_destory_task(task);
-        return HTTP_VIDEO_ERROR_CODE_CREATE_TASK_FAIL;
+        return NGX_MEDIA_ERROR_CODE_CREATE_TASK_FAIL;
     }
 
     attr_value = xmlGetProp(curNode,BAD_CAST "taskid");
@@ -1539,7 +1537,7 @@ error_start:
         }
         task->status = ngx_media_worker_status_break;/* the error task will be destory by the time checker */
         ngx_thread_mutex_unlock(&task->task_mtx, task->log);
-        return HTTP_VIDEO_ERROR_CODE_CREATE_TASK_FAIL;
+        return NGX_MEDIA_ERROR_CODE_CREATE_TASK_FAIL;
     }
     task->status = ngx_media_worker_status_start;
     ngx_thread_mutex_unlock(&task->task_mtx, task->log);
@@ -1548,7 +1546,7 @@ error_start:
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
                           "ngx http video task start task end.");
-    return HTTP_VIDEO_ERROR_CODE_OK;
+    return NGX_MEDIA_ERROR_CODE_OK;
 }
 static int
 ngx_media_task_stop_task(ngx_str_t* taskid)
@@ -1560,7 +1558,7 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
     ngx_uint_t                     stop   = 0;
 
     if (ngx_thread_mutex_lock(&video_task_ctx.task_thread_mtx, video_task_ctx.log) != NGX_OK) {
-        return HTTP_VIDEO_ERROR_CODE_SYS_ERROR;
+        return NGX_MEDIA_ERROR_CODE_SYS_ERROR;
     }
 
     task = video_task_ctx.task_head;
@@ -1609,19 +1607,19 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
     }
 
     if (ngx_thread_mutex_unlock(&video_task_ctx.task_thread_mtx, video_task_ctx.log) != NGX_OK) {
-        return HTTP_VIDEO_ERROR_CODE_SYS_ERROR;
+        return NGX_MEDIA_ERROR_CODE_SYS_ERROR;
     }
 
     if(!stop) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
                           "ngx http video task stop task end,but there is no task.");
-        return HTTP_VIDEO_ERROR_CODE_TASK_NO_EXIST;
+        return NGX_MEDIA_ERROR_CODE_TASK_NO_EXIST;
     }
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
                           "ngx http video task stop task end.");
 
-    return HTTP_VIDEO_ERROR_CODE_OK;
+    return NGX_MEDIA_ERROR_CODE_OK;
 }
 
 static int
@@ -1629,7 +1627,7 @@ ngx_media_task_update_task(xmlDocPtr doc)
 {
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
                           "ngx http video task update task end.");
-    return HTTP_VIDEO_ERROR_CODE_OK;//todo:
+    return NGX_MEDIA_ERROR_CODE_OK;//todo:
 }
 
 
@@ -1742,7 +1740,7 @@ ngx_media_task_worker_trigger(ngx_uint_t status,ngx_media_worker_ctx_t* ctx)
 }
 
 static void
-ngx_media_task_worker_watcher(ngx_uint_t status,ngx_media_worker_ctx_t* ctx)
+ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t errno,ngx_media_worker_ctx_t* ctx)
 {
 
     if((ngx_media_worker_status_start == status)
@@ -1750,7 +1748,8 @@ ngx_media_task_worker_watcher(ngx_uint_t status,ngx_media_worker_ctx_t* ctx)
             ngx_media_task_worker_trigger(status,ctx);
     }
     if(ngx_thread_mutex_lock(&ctx->work_mtx, ctx->log) == NGX_OK) {
-        ctx->status = status;
+        ctx->status      = status;
+        ctx->error_code  = errno;
         ctx->updatetime  = ngx_time();
         ngx_thread_mutex_unlock(&ctx->work_mtx, ctx->log);
     }
@@ -1816,7 +1815,7 @@ ngx_media_task_deal_static_xml(ngx_tree_ctx_t *ctx, ngx_str_t *path)
                           "ngx_media_task_deal_static_xml,file:[%V].",path);
 
     xmlDocPtr  doc;
-    int        ret      = HTTP_VIDEO_ERROR_CODE_OK;
+    int        ret      = NGX_MEDIA_ERROR_CODE_OK;
     xmlNodePtr curNode  = NULL;
     u_char*    pCommand = NULL;
     ngx_media_main_conf_t* conf;
@@ -1874,7 +1873,7 @@ ngx_media_task_deal_static_xml(ngx_tree_ctx_t *ctx, ngx_str_t *path)
                           "http video task unknow the command type.");
     }
 
-    if(HTTP_VIDEO_ERROR_CODE_OK != ret) {
+    if(NGX_MEDIA_ERROR_CODE_OK != ret) {
         ngx_log_error(NGX_LOG_ERR, conf->log, 0,
                           "ngx http video task deal xml req error,ret:%d.",ret);
     }
@@ -1940,6 +1939,7 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
     ngx_media_worker_ctx_t   *array  = NULL;
     ngx_list_part_t          *part   = NULL;
     ngx_uint_t                status = ngx_media_worker_status_end;
+    ngx_int_t                 err_code  = NGX_MEDIA_ERROR_CODE_OK;
 
     if (ngx_thread_mutex_lock(&task->task_mtx, task->log) != NGX_OK) {
         return ;
@@ -1953,6 +1953,9 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
         {
             worker = &array[loop];
             if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
+                if(worker->error_code > err_code) {
+                    err_code = worker->error_code;
+                }
                 if(ngx_media_worker_status_break == worker->status) {
                     status = ngx_media_worker_status_break;
                     ngx_thread_mutex_unlock(&worker->work_mtx, worker->log);
@@ -1968,7 +1971,8 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
         part = part->next;
     }
 end:
-    task->status = status;
+    task->status     = err_code;
+    task->error_code = errno;
 
     ngx_thread_mutex_unlock(&task->task_mtx, task->log);
     return;
@@ -2020,7 +2024,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
 {
     xmlDocPtr doc;
 
-    int        ret      = HTTP_VIDEO_ERROR_CODE_OK;
+    int        ret      = NGX_MEDIA_ERROR_CODE_OK;
     xmlNodePtr curNode  = NULL;
     u_char*    pTaskID  = NULL;
     ngx_str_t  taskid;
@@ -2036,7 +2040,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                           "http video task deal the xml fail.");
-        ngx_media_task_error_xml(r,out,HTTP_VIDEO_ERROR_CODE_XML_ERROR,NULL);
+        ngx_media_task_error_xml(r,out,NGX_MEDIA_ERROR_CODE_XML_ERROR,NULL);
         return ;
     }
 
@@ -2046,7 +2050,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                           "http video task get the xml root fail.");
-        ngx_media_task_error_xml(r,out,HTTP_VIDEO_ERROR_CODE_XML_ERROR,NULL);
+        ngx_media_task_error_xml(r,out,NGX_MEDIA_ERROR_CODE_XML_ERROR,NULL);
         xmlFreeDoc(doc);
         return ;
     }
@@ -2055,7 +2059,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                           "http video task find the xml req node fail.");
-        ngx_media_task_error_xml(r,out,HTTP_VIDEO_ERROR_CODE_XML_ERROR,NULL);
+        ngx_media_task_error_xml(r,out,NGX_MEDIA_ERROR_CODE_XML_ERROR,NULL);
         xmlFreeDoc(doc);
         return ;
     }
@@ -2066,7 +2070,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                           "http video task find the xml task node fail,:%s.",curNode->name);
-        ngx_media_task_error_xml(r,out,HTTP_VIDEO_ERROR_CODE_PARAM_ERROR,NULL);
+        ngx_media_task_error_xml(r,out,NGX_MEDIA_ERROR_CODE_PARAM_ERROR,NULL);
         xmlFreeDoc(doc);
         return ;
     }
@@ -2076,7 +2080,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     if(NULL == pTaskID){
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                           "http video task find the xml taskid attribute from task node fail.");
-        ngx_media_task_error_xml(r,out,HTTP_VIDEO_ERROR_CODE_PARAM_ERROR,NULL);
+        ngx_media_task_error_xml(r,out,NGX_MEDIA_ERROR_CODE_PARAM_ERROR,NULL);
         xmlFreeDoc(doc);
         return ;
     }
@@ -2104,7 +2108,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     else {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                           "http video task unknow the command type.");
-        ret = HTTP_VIDEO_ERROR_CODE_SYS_ERROR;
+        ret = NGX_MEDIA_ERROR_CODE_SYS_ERROR;
     }
 
     ngx_media_task_error_xml(r,out,ret,curNode);

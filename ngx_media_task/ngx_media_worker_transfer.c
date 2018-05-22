@@ -528,7 +528,7 @@ ngx_media_worker_transfer_thread(void *data)
                           "ngx_media_worker_transfer_thread begin.");
 
     if(trans_ctx->watcher) {
-        trans_ctx->watcher(ngx_media_worker_status_start,trans_ctx->wk_ctx);
+        trans_ctx->watcher(ngx_media_worker_status_start,NGX_MEDIA_ERROR_CODE_OK,trans_ctx->wk_ctx);
     }
 
     if((NGX_WORKER_STORAGE_TYPE_OSS == trans_ctx->dst_fs)
@@ -544,7 +544,7 @@ ngx_media_worker_transfer_thread(void *data)
 
     ngx_media_worker_transfer_delete(trans_ctx);
     if(trans_ctx->watcher) {
-        trans_ctx->watcher(ngx_media_worker_status_end,trans_ctx->wk_ctx);
+        trans_ctx->watcher(ngx_media_worker_status_end,NGX_MEDIA_ERROR_CODE_OK,trans_ctx->wk_ctx);
     }
     ngx_log_error(NGX_LOG_DEBUG, trans_ctx->log, 0,
                           "ngx_media_worker_transfer_thread end.");
@@ -576,7 +576,7 @@ ngx_media_worker_transfer_upload(ngx_worker_transfer_ctx_t* ctx)
 
             /* report the status */
             if(ctx->watcher) {
-                ctx->watcher(ngx_media_worker_status_running,ctx->wk_ctx);
+                ctx->watcher(ngx_media_worker_status_running,NGX_MEDIA_ERROR_CODE_OK,ctx->wk_ctx);
             }
         }
         part = part->next;
@@ -606,7 +606,7 @@ ngx_media_worker_transfer_download(ngx_worker_transfer_ctx_t* ctx)
 
             /* report the status */
             if(ctx->watcher) {
-                ctx->watcher(ngx_media_worker_status_running,ctx->wk_ctx);
+                ctx->watcher(ngx_media_worker_status_running,NGX_MEDIA_ERROR_CODE_OK,ctx->wk_ctx);
             }
         }
         part = part->next;

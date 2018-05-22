@@ -1,5 +1,6 @@
 #include "ngx_media_worker_mediakernel.h"
 
+
 #define NGX_HTTP_VIDEO_ARG_MK_SRC    "-src"
 #define NGX_HTTP_VIDEO_ARG_MK_DST    "-dst"
 
@@ -49,19 +50,19 @@ ngx_media_worker_mk_timer(ngx_event_t *ev)
         return;
     }
     if(MK_TASK_STATUS_INIT == status) {
-        worker_ctx->watcher(ngx_media_worker_status_init,worker_ctx->wk_ctx);
+        worker_ctx->watcher(ngx_media_worker_status_init,NGX_MEDIA_ERROR_CODE_OK,worker_ctx->wk_ctx);
     }
     else if(MK_TASK_STATUS_START == status) {
-        worker_ctx->watcher(ngx_media_worker_status_start,worker_ctx->wk_ctx);
+        worker_ctx->watcher(ngx_media_worker_status_start,NGX_MEDIA_ERROR_CODE_OK,worker_ctx->wk_ctx);
     }
     else if(MK_TASK_STATUS_RUNNING == status) {
-        worker_ctx->watcher(ngx_media_worker_status_running,worker_ctx->wk_ctx);
+        worker_ctx->watcher(ngx_media_worker_status_running,NGX_MEDIA_ERROR_CODE_OK,worker_ctx->wk_ctx);
     }
     else if(MK_TASK_STATUSS_STOP == status) {
-        worker_ctx->watcher(ngx_media_worker_status_end,worker_ctx->wk_ctx);
+        worker_ctx->watcher(ngx_media_worker_status_end,NGX_MEDIA_ERROR_CODE_OK,worker_ctx->wk_ctx);
     }
     else {
-        worker_ctx->watcher(ngx_media_worker_status_break,worker_ctx->wk_ctx);
+        worker_ctx->watcher(ngx_media_worker_status_break,NGX_MEDIA_ERROR_CODE_OK,worker_ctx->wk_ctx);
     }
 
     if(MK_TASK_STATUSS_STOP == status) {

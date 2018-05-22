@@ -42,8 +42,8 @@ webvtt_init_process(vod_log_t* log)
 	iconv_utf16le_to_utf8 = iconv_open("UTF8", "UTF16LE");
 	if (iconv_utf16le_to_utf8 == ICONV_INVALID_DESC)
 	{
-		vod_log_error(VOD_LOG_WARN, log, vod_errno,
-			"webvtt_init_process: iconv_open failed, utf16 srt is not supported");
+		//vod_log_error(VOD_LOG_WARN, log, vod_errno,
+		//	"webvtt_init_process: iconv_open failed, utf16 srt is not supported");
 	}
 }
 
@@ -75,9 +75,9 @@ webvtt_utf16le_to_utf8(
 
 	// initialize the output array
 	if (vod_array_init(
-		&output_arr, 
-		request_context->pool, 
-		input->len / 2 + ICONV_INITIAL_ALLOC_SIZE, 
+		&output_arr,
+		request_context->pool,
+		input->len / 2 + ICONV_INITIAL_ALLOC_SIZE,
 		1) != VOD_OK)
 	{
 		vod_log_debug0(VOD_LOG_DEBUG_LEVEL, request_context->log, 0,
@@ -214,7 +214,7 @@ webvtt_find_next_cue(u_char* cur_pos)
 		case '-':
 			dash_count++;
 			continue;
-		
+
 		case '>':
 			if (dash_count >= 2)
 			{

@@ -154,12 +154,28 @@
 #define TASK_ARGS_MAX         256
 
 
+enum NGX_MEDIA_ERROR_CODE
+{
+   NGX_MEDIA_ERROR_CODE_OK               = 0x0000, /*success*/
+   NGX_MEDIA_ERROR_CODE_XML_ERROR        = 0x0001, /*xml error*/
+   NGX_MEDIA_ERROR_CODE_PARAM_ERROR      = 0x0002, /*param error*/
+   NGX_MEDIA_ERROR_CODE_TASK_EXIST       = 0x0003, /*the task is existed */
+   NGX_MEDIA_ERROR_CODE_TASK_NO_EXIST    = 0x0004, /*the task is not existed */
+   NGX_MEDIA_ERROR_CODE_CREATE_TASK_FAIL = 0x0005, /*creat task fail */
+   NGX_MEDIA_ERROR_CODE_SYS_ERROR                  /*System error or unknow error*/
+};
+
+
+
+
+
 typedef struct ngx_media_task_s ngx_media_task_t;
 
 struct ngx_media_task_s {
     ngx_str_t                       task_id;
     volatile ngx_int_t              status;
     volatile time_t                 lastreport;
+    ngx_int_t                       error_code;
     ngx_int_t                       rep_inter;
     ngx_str_t                       rep_url;
     ngx_url_t                       url;
