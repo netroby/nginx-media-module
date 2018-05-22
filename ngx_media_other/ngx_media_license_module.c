@@ -31,10 +31,10 @@
 
 
 
-#define LICENSE_TASK_COUNT_DEFAULT      2   /* default the task count */
-#define LICENSE_RTMP_CHANNEL_DEFAULT    10  /* default the RTMP channel */
-#define LICENSE_RTSP_CHANNEL_DEFAULT    10  /* default the RTSP channel */
-#define LICENSE_HLS_CHANNEL_DEFAULT     10  /* default the HLS channel */
+#define LICENSE_TASK_COUNT_DEFAULT      1   /* default the task count */
+#define LICENSE_RTMP_CHANNEL_DEFAULT    2   /* default the RTMP channel */
+#define LICENSE_RTSP_CHANNEL_DEFAULT    2   /* default the RTSP channel */
+#define LICENSE_HLS_CHANNEL_DEFAULT     2   /* default the HLS channel */
 
 #define LICENSE_FILE_NAME              "license.xml"
 #define LICENSE_FILE_PATH_LEN          512

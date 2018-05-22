@@ -96,7 +96,7 @@ static int       ngx_media_task_stop_task(ngx_str_t* taskid);
 static int       ngx_media_task_update_task(xmlDocPtr doc);
 static void      ngx_media_task_check_task(ngx_event_t *ev);
 static ngx_int_t ngx_media_task_check_task_exist(u_char* taskID);
-static void      ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t errno,ngx_media_worker_ctx_t* ctx);
+static void      ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t err_code,ngx_media_worker_ctx_t* ctx);
 static void      ngx_media_task_dump_info(ngx_media_task_t* task);
 static void      ngx_media_task_check_static_task(ngx_event_t *ev);
 static ngx_int_t ngx_media_task_deal_static_xml(ngx_tree_ctx_t *ctx, ngx_str_t *path);
@@ -1332,6 +1332,7 @@ ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
         pWorker->master = 1;
         pWorker->starttime = 0;
         pWorker->updatetime = 0;
+        pWorker->error_code = NGX_MEDIA_ERROR_CODE_OK;
         pWorker->status = ngx_media_worker_status_init;
         pWorker->nparamcount = 0;
         ngx_uint_t lens = NGX_HTTP_TRANS_PARAM_MAX*sizeof(u_char*);
@@ -1740,7 +1741,7 @@ ngx_media_task_worker_trigger(ngx_uint_t status,ngx_media_worker_ctx_t* ctx)
 }
 
 static void
-ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t errno,ngx_media_worker_ctx_t* ctx)
+ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t err_code,ngx_media_worker_ctx_t* ctx)
 {
 
     if((ngx_media_worker_status_start == status)
@@ -1749,7 +1750,7 @@ ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t errno,ngx_media_worker
     }
     if(ngx_thread_mutex_lock(&ctx->work_mtx, ctx->log) == NGX_OK) {
         ctx->status      = status;
-        ctx->error_code  = errno;
+        ctx->error_code  = err_code;
         ctx->updatetime  = ngx_time();
         ngx_thread_mutex_unlock(&ctx->work_mtx, ctx->log);
     }
@@ -1971,8 +1972,8 @@ ngx_media_task_check_workers(ngx_media_task_t* task)
         part = part->next;
     }
 end:
-    task->status     = err_code;
-    task->error_code = errno;
+    task->status     = status;
+    task->error_code = err_code;
 
     ngx_thread_mutex_unlock(&task->task_mtx, task->log);
     return;

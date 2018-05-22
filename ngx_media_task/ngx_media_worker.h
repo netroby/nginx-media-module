@@ -58,7 +58,7 @@ typedef struct {
     ngx_uint_t                      master;
     time_t                          starttime;
     time_t                          updatetime;
-    ngx_uint_t                      status;
+    ngx_int_t                       status;
     ngx_int_t                       error_code;
     ngx_int_t                       nparamcount;
     u_char**                        paramlist;
@@ -74,7 +74,7 @@ typedef struct {
     ngx_list_t                     *triggerEnd;    /* trigger list(ngx_media_worker_trigger_ctx) after curren worker the ending */
 } ngx_media_worker_ctx_t;
 
-typedef void (*WK_WATCH)(ngx_uint_t status,ngx_int_t errno,ngx_media_worker_ctx_t* ctx);
+typedef void (*WK_WATCH)(ngx_uint_t status,ngx_int_t err_code,ngx_media_worker_ctx_t* ctx);
 
 struct ngx_media_worker_s{
     ngx_uint_t                      type;
