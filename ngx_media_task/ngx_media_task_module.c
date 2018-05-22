@@ -703,13 +703,18 @@ static ngx_buf_t *
 ngx_media_task_report_create_request(ngx_media_task_t *task,
                                          ngx_http_trans_report_ctx_t *ctx)
 {
-    xmlDocPtr                       doc         = NULL;/* document pointer */
-    xmlNodePtr                      report_node = NULL;
-    xmlNodePtr                      task_node   = NULL;
-    xmlNodePtr                      result_node = NULL;
-    xmlChar                        *xmlbuff     = NULL;
-    int                             buffersize  = 0;
-    u_char                         *last        = NULL;
+    ngx_media_worker_ctx_t   *worker      = NULL;
+    ngx_media_worker_ctx_t   *array       = NULL;
+    ngx_list_part_t          *part        = NULL;
+    xmlDocPtr                 doc         = NULL;/* document pointer */
+    xmlNodePtr                report_node = NULL;
+    xmlNodePtr                task_node   = NULL;
+    xmlNodePtr                result_node = NULL;
+    xmlNodePtr                works_node  = NULL;
+    xmlNodePtr                work_node   = NULL;
+    xmlChar                  *xmlbuff     = NULL;
+    int                       buffersize  = 0;
+    u_char                   *last        = NULL;
 
     size_t     len;
     ngx_buf_t  *b;
@@ -753,6 +758,55 @@ ngx_media_task_report_create_request(ngx_media_task_t *task,
     xmlAddChild(task_node, result_node);
 
     xmlAddChild(report_node, task_node);
+
+    works_node = xmlNewNode(NULL, BAD_CAST "workers");
+
+    part  = &(task->workers->part);
+    while (part)
+    {
+        array = (ngx_media_worker_ctx_t*)(part->elts);
+        ngx_uint_t loop = 0;
+        for (; loop < part->nelts; loop++)
+        {
+            worker = &array[loop];
+            if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
+
+                work_node = xmlNewNode(NULL, BAD_CAST "worker");
+
+                xmlNewProp(work_node, BAD_CAST TASK_XML_WORKER_ID, BAD_CAST worker->wokerid.data);
+
+                ngx_memzero(&buf, 128);
+                last = ngx_snprintf(buf, 128, "%d", worker->type);
+                *last = '\0';
+                xmlNewProp(work_node, BAD_CAST TASK_XML_WORKER_TYPE, BAD_CAST buf);
+
+                ngx_memzero(&buf, 128);
+                last = ngx_snprintf(buf, 128, "%d", worker->master);
+                *last = '\0';
+                xmlNewProp(work_node, BAD_CAST TASK_XML_WORKER_MASTER, BAD_CAST buf);
+
+                if(worker->status == ngx_media_worker_status_start) {
+                    xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_START);
+                }
+                else if(worker->status == ngx_media_worker_status_running) {
+                    xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_RUNNING);
+                }
+                else if(worker->status == ngx_media_worker_status_end) {
+                    xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_STOP);
+                }
+                else if(worker->status == ngx_media_worker_status_break) {
+                    xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST TASK_COMMAND_BREAK);
+                }
+                else {
+                    xmlNewProp(work_node, BAD_CAST TASK_STATUS, BAD_CAST "invalid");
+                }
+                xmlAddChild(work_node, works_node);
+                ngx_thread_mutex_unlock(&worker->work_mtx, worker->log);
+            }
+        }
+        part = part->next;
+    }
+    xmlAddChild(works_node, task_node);
 
 
     xmlDocDumpFormatMemory(doc, &xmlbuff, &buffersize, 1);
