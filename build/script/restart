@@ -5,9 +5,9 @@ runpath=$(dirname $(pwd))
 
 #./allmedia -s reload -p $runpath -c $runpath/conf/allmedia.conf 
 if [ -f "$curpath/nginx" ];then
-    ./nginx -s reload
+    ./nginx -s reload -p $runpath -c $runpath/conf/nginx.conf
 fi
 
 if [ -f "$curpath/allmedia" ];then
-    ./allmedia -s reload
+    ./allmedia -s reload -p $runpath -c $runpath/conf/allmedia.conf
 fi
