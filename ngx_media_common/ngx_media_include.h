@@ -162,6 +162,7 @@ enum NGX_MEDIA_ERROR_CODE
    NGX_MEDIA_ERROR_CODE_TASK_EXIST       = 0x0003, /*the task is existed */
    NGX_MEDIA_ERROR_CODE_TASK_NO_EXIST    = 0x0004, /*the task is not existed */
    NGX_MEDIA_ERROR_CODE_CREATE_TASK_FAIL = 0x0005, /*creat task fail */
+   NGX_MEDIA_ERROR_CODE_RUN_TASK_ERROR   = 0x0006, /*run task fail */
    NGX_MEDIA_ERROR_CODE_SYS_ERROR                  /*System error or unknow error*/
 };
 

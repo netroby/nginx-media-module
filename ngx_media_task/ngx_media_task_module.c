@@ -46,6 +46,7 @@ static const char* ERROR_MSG[] ={
     "the task is existed",
     "the task is not existed",
     "creat task fail",
+    "the task run fail",
     "System error or unknow error"
 };
 
