@@ -35,10 +35,13 @@ enum NGX_WORKER_PATH_TYPE {
 
 #define NGX_WORKER_TRANS_TYPE_STR_UPLOAD   "upload"
 #define NGX_WORKER_TRANS_TYPE_STR_DOWNLOAD "download"
+#define NGX_WORKER_TRANS_TYPE_STR_DELETE   "delete"
+
 
 enum NGX_WORKER_TRANS_TYPE {
     NGX_WORKER_TRANS_TYPE_UPLOAD    = 0,   /* UPLOAD */
     NGX_WORKER_TRANS_TYPE_DOWNLOAD  = 1,   /* DOWNLOAD */
+    NGX_WORKER_TRANS_TYPE_DELETE    = 2,   /* DELETE */
 };
 
 
@@ -217,6 +220,16 @@ ngx_media_worker_transfer_check_agrs(ngx_media_worker_ctx_t* ctx)
 {
     ngx_worker_transfer_ctx_t* trans_ctx = (ngx_worker_transfer_ctx_t*)ctx->priv_data;
 
+    if(NGX_WORKER_TRANS_TYPE_DELETE == trans_ctx->transType){
+        ngx_list_part_t *part  = &(ctx->delete->part);
+        if(0 == part->nelts) {
+            ngx_log_error(NGX_LOG_ERR, ctx->log, 2,
+                          "ngx_media_worker_transfer_check_agrs,the delete list is empty.");
+            return NGX_ERROR;
+        }
+        return NGX_OK;
+    }
+
     if((NGX_WORKER_STORAGE_TYPE_OSS != trans_ctx->dst_fs)
         &&(0 == trans_ctx->dst.path.len)) {
         ngx_log_error(NGX_LOG_ERR, ctx->log, 2,
@@ -314,6 +327,9 @@ ngx_media_worker_transfer_arg_trans_type(ngx_worker_transfer_ctx_t* ctx,u_char* 
     }
     else if(ngx_strncmp(value,NGX_WORKER_TRANS_TYPE_STR_DOWNLOAD,size) == 0) {
         ctx->transType = NGX_WORKER_TRANS_TYPE_DOWNLOAD;
+    }
+    else if(ngx_strncmp(value,NGX_WORKER_TRANS_TYPE_STR_DELETE,size) == 0) {
+        ctx->transType = NGX_WORKER_TRANS_TYPE_DELETE;
     }
     else {
         ngx_log_error(NGX_LOG_ERR, ctx->log, 1,
@@ -531,9 +547,7 @@ ngx_media_worker_transfer_thread(void *data)
         trans_ctx->watcher(ngx_media_worker_status_start,NGX_MEDIA_ERROR_CODE_OK,trans_ctx->wk_ctx);
     }
 
-    if((NGX_WORKER_STORAGE_TYPE_OSS == trans_ctx->dst_fs)
-        ||(NGX_WORKER_STORAGE_TYPE_OSS == trans_ctx->src_fs)) {
-    }
+
 
     if(NGX_WORKER_TRANS_TYPE_UPLOAD == trans_ctx->transType) {
         ngx_media_worker_transfer_upload(trans_ctx);
@@ -541,6 +555,8 @@ ngx_media_worker_transfer_thread(void *data)
     else if(NGX_WORKER_TRANS_TYPE_DOWNLOAD == trans_ctx->transType) {
         ngx_media_worker_transfer_download(trans_ctx);
     }
+    /* if(NGX_WORKER_TRANS_TYPE_DELETE == trans_ctx->transType)
+     or clean the trans temp file */
 
     ngx_media_worker_transfer_delete(trans_ctx);
     if(trans_ctx->watcher) {
