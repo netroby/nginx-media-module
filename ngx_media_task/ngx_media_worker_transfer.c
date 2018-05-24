@@ -221,7 +221,7 @@ ngx_media_worker_transfer_check_agrs(ngx_media_worker_ctx_t* ctx)
     ngx_worker_transfer_ctx_t* trans_ctx = (ngx_worker_transfer_ctx_t*)ctx->priv_data;
 
     if(NGX_WORKER_TRANS_TYPE_DELETE == trans_ctx->transType){
-        ngx_list_part_t *part  = &(ctx->delete->part);
+        ngx_list_part_t *part  = &(trans_ctx->delete->part);
         if(0 == part->nelts) {
             ngx_log_error(NGX_LOG_ERR, ctx->log, 2,
                           "ngx_media_worker_transfer_check_agrs,the delete list is empty.");
