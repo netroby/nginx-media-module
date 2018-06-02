@@ -2080,6 +2080,27 @@ ngx_media_task_check_task(ngx_event_t *ev)
 }
 
 static void
+ngx_media_task_dump_xml_to_file(ngx_http_request_t *r,ngx_str_t* taskid,xmlDocPtr doc)
+{
+    ngx_media_main_conf_t* conf;
+    u_char path[TRANS_STRING_MAX_LEN];
+
+    ngx_memzero(&path, TRANS_STRING_MAX_LEN);
+    conf = ngx_http_get_module_main_conf(r, ngx_media_task_module);
+
+    if((NULL == conf->static_task.data )||( 0 == conf->static_task.len)) {
+        return;
+    }
+
+    u_char* last = ngx_snprintf(path, TRANS_STRING_MAX_LEN,"%V/%V.xml", &conf->static_task,taskid);
+    *last ='\0';
+    if (NULL != doc) {
+        xmlSaveFormatFile((char*)&path[0], doc, 1);
+    }
+    return;
+}
+
+static void
 ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_t* out)
 {
     xmlDocPtr doc;
@@ -2089,6 +2110,8 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     u_char*    pTaskID  = NULL;
     ngx_str_t  taskid;
     u_char*    pCommand = NULL;
+    u_char*    pType    = NULL;
+    ngx_uint_t bStatic  = 0;
     ngx_media_main_conf_t* conf;
 
 
@@ -2156,8 +2179,18 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
         return ;
     }
 
+    pType = xmlGetProp(curNode,BAD_CAST COMMON_XML_REQ_TYPE);
+    if(NULL != pType){
+        if(ngx_strncmp(pType,COMMON_XML_REQ_STATIC,ngx_strlen(COMMON_XML_REQ_STATIC)) == 0) {
+           bStatic = 1;
+        }
+    }
+
     if(ngx_strncmp(pCommand,TASK_COMMAND_START,ngx_strlen(TASK_COMMAND_START)) == 0) {
-       ret = ngx_media_task_start_task(conf,doc);
+        ret = ngx_media_task_start_task(conf,doc);
+        if(bStatic &&(NGX_MEDIA_ERROR_CODE_OK == ret)) {
+            ngx_media_task_dump_xml_to_file(r,&taskid,doc);
+        }
     }
     else if(ngx_strncmp(pCommand,TASK_COMMAND_STOP,ngx_strlen(TASK_COMMAND_STOP)) == 0) {
         ret = ngx_media_task_stop_task(&taskid);

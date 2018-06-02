@@ -64,6 +64,9 @@
 #define LOCAL_RTMP_URl       "rtmp://127.0.0.1:1935/rtmp"
 
 #define COMMON_XML_REQ          "req"
+#define COMMON_XML_REQ_TYPE     "type"
+#define COMMON_XML_REQ_STATIC   "static"
+#define COMMON_XML_REQ_DYNAMIC  "dynamic"
 #define COMMON_XML_RESP         "resp"
 #define COMMON_XML_COMMAND      "command"
 #define COMMON_XML_NAME         "name"
