@@ -273,17 +273,32 @@ ngx_media_task_static_init_timer(ngx_media_main_conf_t* conf)
 
     ngx_add_timer(&conf->static_task_timer,NGX_HTTP_STATIC_TASK_TIMER);
 }
-#if (NGX_DEBUG)
 static void
-ngx_media_task_mk_log_callback(const char* line,void* userdata)
+ngx_media_task_mk_log_callback(const char* line,MK_LOG_LEVEL enLevel,void* userdata)
 {
     if(NULL == line || NULL == userdata) {
         return;
     }
     ngx_log_t* log = (ngx_log_t*)userdata;
-    ngx_log_error(NGX_LOG_DEBUG, log, 0, "[mediakernel log]:%s",line);
+    if(MK_LOG_LEVEL_DEBUG == enLevel) {
+        ngx_log_error(NGX_LOG_DEBUG, log, 0, "[mediakernel log]:%s",line);
+    }
+    else if(MK_LOG_LEVEL_INFO == enLevel) {
+        ngx_log_error(NGX_LOG_INFO, log, 0, "[mediakernel log]:%s",line);
+    }
+    else if(MK_LOG_LEVEL_WARNNING == enLevel) {
+        ngx_log_error(NGX_LOG_WARN, log, 0, "[mediakernel log]:%s",line);
+    }
+    else if(MK_LOG_LEVEL_ERROR == enLevel) {
+        ngx_log_error(NGX_LOG_ERR, log, 0, "[mediakernel log]:%s",line);
+    }
+    else if(MK_LOG_LEVEL_FATAL == enLevel) {
+        ngx_log_error(NGX_LOG_CRIT, log, 0, "[mediakernel log]:%s",line);
+    }
+    else {
+        ngx_log_error(NGX_LOG_ERR, log, 0, "[mediakernel log]:%s",line);
+    }
 }
-#endif
 
 
 static ngx_int_t
@@ -291,6 +306,7 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
 {
     ngx_media_main_conf_t *mainconf   = NULL;
     int task_monitor = 0;
+    MK_LOG_LEVEL enLevel = MK_LOG_LEVEL_ERROR;
 
     video_task_ctx.log = cycle->log;
     video_task_ctx.task_head  = NULL;
@@ -309,13 +325,32 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
     if(NGX_CONF_UNSET != mainconf->task_monitor) {
         task_monitor = mainconf->task_monitor;
     }
+    /* init the media kernel log handle */
+    if(NGX_LOG_DEBUG == cycle->log->log_level) {
+        enLevel = MK_LOG_LEVEL_DEBUG;
+    }
+    else if(NGX_LOG_INFO == cycle->log->log_level) {
+        enLevel = MK_LOG_LEVEL_INFO;
+    }
+    else if(NGX_LOG_NOTICE == cycle->log->log_level) {
+        enLevel = MK_LOG_LEVEL_INFO;
+    }
+    else if(NGX_LOG_WARN == cycle->log->log_level) {
+        enLevel = MK_LOG_LEVEL_WARNNING;
+    }
+    else if(NGX_LOG_ERR == cycle->log->log_level) {
+        enLevel = MK_LOG_LEVEL_ERROR;
+    }
+    else if(NGX_LOG_ERR > cycle->log->log_level) {
+        enLevel = MK_LOG_LEVEL_FATAL;
+    }
+    else {
+        enLevel = MK_LOG_LEVEL_ERROR;
+    }
+    mk_log_init(ngx_media_task_mk_log_callback,enLevel,cycle->log)
 
     /* init the media kernel libary */
-#if (NGX_DEBUG)
-    int ret = mk_lib_init(ngx_media_task_mk_log_callback,cycle->log,task_monitor);
-#else
-    int ret = mk_lib_init(NULL,NULL,task_monitor);
-#endif
+    int ret = mk_lib_init(task_monitor);
     if(MK_ERROR_CODE_OK != ret) {
         return NGX_ERROR;
     }
