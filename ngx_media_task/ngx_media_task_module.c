@@ -273,6 +273,17 @@ ngx_media_task_static_init_timer(ngx_media_main_conf_t* conf)
 
     ngx_add_timer(&conf->static_task_timer,NGX_HTTP_STATIC_TASK_TIMER);
 }
+#if (NGX_DEBUG)
+static void
+ngx_media_task_mk_log_callback(const char* line,void* userdata)
+{
+    if(NULL == line || NULL == userdata) {
+        return;
+    }
+    ngx_log_t* log = (ngx_log_t*)userdata;
+    ngx_log_error(NGX_LOG_DEBUG, log, 0, "[mediakernel log]:%s",line);
+}
+#endif
 
 
 static ngx_int_t
@@ -300,7 +311,11 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
     }
 
     /* init the media kernel libary */
-    int ret = mk_lib_init(NULL,task_monitor);
+#if (NGX_DEBUG)
+    int ret = mk_lib_init(ngx_media_task_mk_log_callback,cycle->log,task_monitor);
+#else
+    int ret = mk_lib_init(NULL,NULL,task_monitor);
+#endif
     if(MK_ERROR_CODE_OK != ret) {
         return NGX_ERROR;
     }

@@ -275,11 +275,13 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
             ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message there is no url.");
             break;
         }
+
         ngx_uint_t lens  = ngx_strlen(url->valuestring);
         worker_ctx->mk_paramlist[3] = ngx_pcalloc(worker_ctx->pool,lens + 1);
         u_char* last = ngx_cpymem(worker_ctx->mk_paramlist[3], url->valuestring,lens);
         *last = '\0';
         flag = 1;
+        ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel,the url:[%s].",worker_ctx->mk_paramlist[3]);
     }while(0);
     cJSON_Delete(root);
 
