@@ -274,7 +274,7 @@ ngx_media_task_static_init_timer(ngx_media_main_conf_t* conf)
     ngx_add_timer(&conf->static_task_timer,NGX_HTTP_STATIC_TASK_TIMER);
 }
 static void
-ngx_media_task_mk_log_callback(const char* line,MK_LOG_LEVEL enLevel,void* userdata)
+ngx_media_task_mk_log_callback(const char* line,int enLevel,void* userdata)
 {
     if(NULL == line || NULL == userdata) {
         return;
