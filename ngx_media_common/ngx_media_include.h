@@ -26,6 +26,7 @@
 #define NGX_HTTP_TRANS_TASK     "video_task"
 #define NGX_HTTP_TASK_ARGS      "task_args"
 #define NGX_HTTP_TASK_MONITOR   "task_monitor"
+#define NGX_HTTP_TASK_MK_LOG    "task_mk_log"
 #define NGX_HTTP_VIDEO_STAT     "video_stat"
 #define NGX_HTTP_STAT_PASSWD    "manage_password"
 #define NGX_HTTP_STATIC_TASK    "static_task"
