@@ -358,10 +358,11 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
 
     /* execs are always started by the first worker */
     if (ngx_process_slot) {
+        ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "ngx_media_task_module,the process:[%d] is not 0,no need start static timer.",ngx_process_slot);
         return NGX_OK;
     }
 
-
+    ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "ngx_media_task_module,the process:[%d] is 0,so start static timer.",ngx_process_slot);
 
     ngx_media_task_static_init_timer(mainconf);
 
@@ -2195,6 +2196,13 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
         return ;
     }
 
+    pType = xmlGetProp(curNode,BAD_CAST COMMON_XML_REQ_TYPE);
+    if(NULL != pType){
+        if(ngx_strncmp(pType,COMMON_XML_REQ_STATIC,ngx_strlen(COMMON_XML_REQ_STATIC)) == 0) {
+           bStatic = 1;
+        }
+    }
+
     curNode = curNode->children;
 
     if (xmlStrcmp(curNode->name, BAD_CAST "task"))
@@ -2227,12 +2235,6 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
         return ;
     }
 
-    pType = xmlGetProp(curNode,BAD_CAST COMMON_XML_REQ_TYPE);
-    if(NULL != pType){
-        if(ngx_strncmp(pType,COMMON_XML_REQ_STATIC,ngx_strlen(COMMON_XML_REQ_STATIC)) == 0) {
-           bStatic = 1;
-        }
-    }
 
     if(ngx_strncmp(pCommand,TASK_COMMAND_START,ngx_strlen(TASK_COMMAND_START)) == 0) {
         ret = ngx_media_task_start_task(conf,doc);

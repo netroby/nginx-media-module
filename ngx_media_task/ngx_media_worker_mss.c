@@ -217,11 +217,12 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
         if(MK_ERROR_CODE_OK != ret) {
             return;
         }
-
+        /*
         int32_t mk_last_error = mk_get_task_last_error(worker_ctx->run_handle);
         if(MK_ERROR_CODE_OK != mk_last_error ) {
             error_code = NGX_MEDIA_ERROR_CODE_RUN_TASK_ERROR;
         }
+        */
         if(MK_TASK_STATUS_INIT == status) {
         worker_ctx->watcher(ngx_media_worker_status_running,error_code,worker_ctx->wk_ctx);
         }

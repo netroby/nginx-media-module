@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<req version="1.0" type="static"> <!-- type:static,dynamic;default:dynamic" -->
-  <task taskid="live_1525866110183_835" command="start">
-    <report interval="0" url="http://114.215.24.48:10000/mss/v1/allmedia/vodCallback" />
+<req version="1.0">
+  <task taskid="33000000000105030103000000000914" command="start">
+    <report interval="0" url="http://114.115.137.181:18081/mss/v1/allmedia/vodCallback" />
     <workers>
       <worker id="0" type="2" master="1">
         <params>
-          <param name="mss_addr" value="http://114.215.24.48:10000/mss/v1/api/live/url"/>
-          <param name="mss_cameraid" value="32000000000105070103000000000956"/>
-          <param name="mss_type" value="live"/>
+          <param name="mss_addr"       value="http://192.169.182.10:10000/mss/v1/api/media/live"/>
+          <param name="mss_cameraid"   value="33000000000105030103000000000914"/>
+          <param name="mss_type"       value="live"/>
           <param name="mss_streamtype" value="1"/>
-          <param name="mss_username" value="$(username)"/>
-          <param name="mss_password" value="$(password)"/>
-          <param name="vcodec" value="libx264"/>
-          <param name="s" value="1280x720"/>
-          <param name="b" value="1500k"/>
-          <param name="acodec" value="aac"/>
-          <!--param name="an" /-->
-          <param name="f" value="flv"/>
-          <param name="dst" value="rtmp://server/live/streamName"/>
+          <param name="mss_username"   value="heshijie"/>
+          <param name="mss_password"   value="heshijie"/>
+          <param name="vcodec"         value="libx264"/>
+          <param name="s"              value="1280x720"/>
+          <param name="b"              value="1500k"/>
+          <!--param name="acodec" value="aac"/-->
+          <param name="an" />
+          <param name="f"              value="flv"/>
+          <param name="dst"            value="rtmp://127.0.0.1:1935/live/$(taskid)"/>
         </params>
       </worker>
     </workers>

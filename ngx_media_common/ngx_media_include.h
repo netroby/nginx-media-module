@@ -43,7 +43,6 @@
 
 
 #define NGX_HTTP_SCH_ZK_ADDR      "sch_zk_address"
-#define NGX_HTTP_SCH_ZK_PATH      "sch_zk_path"
 #define NGX_HTTP_SCH_ZK_UPDATE    "sch_zk_update"
 #define NGX_HTTP_SCH_ZK_SIGIP     "sch_signal_ip"
 #define NGX_HTTP_SCH_ZK_SERIP     "sch_service_ip"
@@ -54,8 +53,7 @@
 #define NGX_HTTP_SCH_LOAD_NET     "sch_load_net"
 #define NGX_HTTP_SCH_LOAD_DISK    "sch_load_disk"
 
-
-#define NGX_HTTP_SCH_ZK_UPSTREAM  "video_schedule"
+#define NGX_HTTP_SCH_ZK_ROOT      "/allmedia"
 
 #define NGX_HTTP_SYS_MANAGE       "sys_manage"
 

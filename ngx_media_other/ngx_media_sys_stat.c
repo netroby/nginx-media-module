@@ -804,7 +804,7 @@ ngx_media_sys_stat_stat_networkcard_info()
         *pBWAvgRecv = *pBWAvgRecv / NGX_STAT_INTERVAL_NUM;
         *pBWAvgSend = *pBWAvgSend / NGX_STAT_INTERVAL_NUM;
 
-        ngx_log_error(NGX_LOG_WARN, g_VideoSysStat->log, 0,
+        ngx_log_error(NGX_LOG_DEBUG, g_VideoSysStat->log, 0,
                     "Netcard stat info:NetCard[%s:%s], totalBW[%u]Mbps,Recv[%u]kbps,Send[%u]kbps.",
                     netcardInfo->m_strName,
                     netcardInfo->m_strIP,

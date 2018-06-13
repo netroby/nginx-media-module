@@ -34,7 +34,6 @@
 typedef struct {
     ngx_str_t                       sch_zk_address;
     char                           *str_zk_address;
-    ngx_str_t                       sch_zk_path;
     char                           *str_zk_path;
     ngx_msec_t                      sch_zk_update;
     ngx_str_t                       sch_signal_ip;
@@ -63,11 +62,15 @@ static void      ngx_media_system_exit_process(ngx_cycle_t *cycle);
 static void*     ngx_media_system_create_main_conf(ngx_conf_t *cf);
 
 /*************************zookeeper schedule****************************/
+static void      ngx_media_system_zk_root_exsit_completion_t(int rc, const struct Stat *stat,const void *data);
+static void      ngx_media_system_zk_root_create_completion_t(int rc, const char *value, const void *data);
+
+
 static void      ngx_media_system_zk_watcher(zhandle_t *zh, int type,int state, const char *path,void *watcherCtx);
 static void      ngx_media_system_zk_init_timer(ngx_media_system_main_conf_t* conf);
-static void      ngx_media_system_zk_update(ngx_event_t *ev);
+static void      ngx_media_system_zk_check_timeout(ngx_event_t *ev);
 static void      ngx_media_system_zk_invoke_stat(ngx_media_system_main_conf_t* conf);
-static void      ngx_media_system_zk_string_completion_t(int rc, const char *value, const void *data);
+static void      ngx_media_system_zk_node_create_completion_t(int rc, const char *value, const void *data);
 static void      ngx_media_system_zk_update_stat_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data);
 static void      ngx_media_system_zk_stat_completion_t(int rc, const struct Stat *stat,const void *data);
 
@@ -102,13 +105,6 @@ static ngx_command_t  ngx_media_system_commands[] = {
       ngx_conf_set_str_slot,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_media_system_main_conf_t, sys_conf.sch_zk_address),
-      NULL },
-
-    { ngx_string(NGX_HTTP_SCH_ZK_PATH),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
-      NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(ngx_media_system_main_conf_t, sys_conf.sch_zk_path),
       NULL },
 
     { ngx_string(NGX_HTTP_SCH_ZK_UPDATE),
@@ -146,7 +142,7 @@ static ngx_command_t  ngx_media_system_commands[] = {
 static ngx_http_module_t  ngx_media_system_module_ctx = {
     NULL,                                   /* preconfiguration */
     NULL,                                   /* postconfiguration */
-    ngx_media_system_create_main_conf, /* create main configuration */
+    ngx_media_system_create_main_conf,      /* create main configuration */
     NULL,                                   /* init main configuration */
     NULL,                                   /* create server configuration */
     NULL,                                   /* merge server configuration */
@@ -157,15 +153,15 @@ static ngx_http_module_t  ngx_media_system_module_ctx = {
 
 ngx_module_t  ngx_media_system_module = {
     NGX_MODULE_V1,
-    &ngx_media_system_module_ctx,        /* module context */
-    ngx_media_system_commands,           /* module directives */
+    &ngx_media_system_module_ctx,             /* module context */
+    ngx_media_system_commands,                /* module directives */
     NGX_HTTP_MODULE,                          /* module type */
     NULL,                                     /* init master */
     NULL,                                     /* init module */
-    ngx_media_system_init_process,       /* init process */
+    ngx_media_system_init_process,            /* init process */
     NULL,                                     /* init thread */
     NULL,                                     /* exit thread */
-    ngx_media_system_exit_process,       /* exit process */
+    ngx_media_system_exit_process,            /* exit process */
     NULL,                                     /* exit master */
     NGX_MODULE_V1_PADDING
 };
@@ -224,7 +220,6 @@ ngx_media_system_create_main_conf(ngx_conf_t *cf)
 
 
     ngx_str_null(&mconf->sys_conf.sch_zk_address);
-    ngx_str_null(&mconf->sys_conf.sch_zk_path);
     ngx_str_null(&mconf->sys_conf.sch_signal_ip);
     ngx_str_null(&mconf->sys_conf.sch_service_ip);
     mconf->sys_conf.sch_disk_vpath = ngx_array_create(cf->pool, TRANS_VPATH_KV_MAX,
@@ -237,8 +232,8 @@ ngx_media_system_create_main_conf(ngx_conf_t *cf)
     mconf->sys_conf.str_zk_path   = NULL;
     mconf->sys_conf.sch_zk_update = NGX_CONF_UNSET;
 
-    mconf->log           = cf->log;
-    mconf->pool          = cf->pool;
+    mconf->log           = NULL;
+    mconf->pool          = NULL;
     g_VideoSysConf       = &mconf->sys_conf;
 
     return mconf;
@@ -280,6 +275,9 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    mainconf->log   = cycle->log;
+    mainconf->pool  = cycle->pool;
+
     /* add the system stat info */
     /* add the stat network card info to stat */
     if(0 < mainconf->sys_conf.sch_signal_ip.len) {
@@ -315,15 +313,19 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
 
     /* execs zookeeper are always started by the first worker */
     if (ngx_process_slot) {
+        ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "ngx_media_system_module,the process:[%d] is not 0,no need start zookeepr.",ngx_process_slot);
+        return NGX_OK;
+    }
+
+    ngx_log_error(NGX_LOG_DEBUG, cycle->log, 0, "ngx_media_system_module,the process:[%d] is 0,so start zookeepr.",ngx_process_slot);
+
+    if( (NULL == mainconf->sys_conf.sch_signal_ip.data) || (0 == mainconf->sys_conf.sch_signal_ip.len)) {
+        ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: NO control IP address,so no need register");
         return NGX_OK;
     }
 
     if(0 >= mainconf->sys_conf.sch_zk_address.len) {
         ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: NO zookeeper address,so no need register");
-        return NGX_OK;
-    }
-    if(0 >= mainconf->sys_conf.sch_zk_path.len) {
-        ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: NO zookeeper path,so no need register");
         return NGX_OK;
     }
 
@@ -335,7 +337,7 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
 
     if(NULL == mainconf->sys_conf.str_zk_path) {
         mainconf->sys_conf.str_zk_path = ngx_pcalloc(cycle->pool,
-                                              mainconf->sys_conf.sch_zk_path.len+1);
+                                              mainconf->sys_conf.sch_signal_ip.len + ngx_strlen(NGX_HTTP_SCH_ZK_ROOT) + 2);
     }
 
     if((NULL == mainconf->sys_conf.str_zk_address)
@@ -348,9 +350,14 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
                  mainconf->sys_conf.sch_zk_address.data,
                  mainconf->sys_conf.sch_zk_address.len);
     *last = '\0';
+
     last = ngx_cpymem((u_char *)mainconf->sys_conf.str_zk_path,
-                 mainconf->sys_conf.sch_zk_path.data,
-                 mainconf->sys_conf.sch_zk_path.len);
+                 NGX_HTTP_SCH_ZK_ROOT,ngx_strlen(NGX_HTTP_SCH_ZK_ROOT));
+    *last = '/';
+    last++;
+    last = ngx_cpymem((u_char *)last,
+                 mainconf->sys_conf.sch_signal_ip.data,
+                 mainconf->sys_conf.sch_signal_ip.len);
     *last = '\0';
 
 
@@ -378,6 +385,49 @@ ngx_media_system_exit_process(ngx_cycle_t *cycle)
     return ;
 }
 
+static void
+ngx_media_system_zk_root_exsit_completion_t(int rc, const struct Stat *stat,const void *data)
+{
+    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    if(rc == ZOK) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"check the zookeeper root path success,so create the child path.");
+        // create node
+        zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_path, NULL, -1,
+                        &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
+                        ngx_media_system_zk_node_create_completion_t, conf);
+    }
+    else {
+        ngx_log_error(NGX_LOG_WARN, conf->log, 0,"the zookeeper root path is not exsti,so create it,error info:%s",zerror(rc));
+        zoo_acreate(conf->sch_zk_handle, NGX_HTTP_SCH_ZK_ROOT, NULL, -1,
+                        &ZOO_OPEN_ACL_UNSAFE, 0,
+                        ngx_media_system_zk_root_create_completion_t, conf);
+
+    }
+}
+
+static void
+ngx_media_system_zk_root_create_completion_t(int rc, const char *value, const void *data)
+{
+    ngx_media_system_main_conf_t* conf
+              = (ngx_media_system_main_conf_t *)data;
+
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_root_create_completion_t: ret:[%d]!",rc);
+
+    if (ZOK != rc) {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create zookeeper root node");
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+    }
+    else {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        // create node
+        zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_path, NULL, -1,
+                        &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
+                        ngx_media_system_zk_node_create_completion_t, conf);
+    }
+}
+
 
 static void
 ngx_media_system_zk_watcher(zhandle_t *zh, int type,int state, const char *path,void *watcherCtx)
@@ -389,10 +439,14 @@ ngx_media_system_zk_watcher(zhandle_t *zh, int type,int state, const char *path,
 
     if(type == ZOO_SESSION_EVENT) {
         if(state == ZOO_CONNECTED_STATE) {
-            // create node
-            zoo_acreate(zh, conf->sys_conf.str_zk_path, NULL, -1,
-                        &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
-                        ngx_media_system_zk_string_completion_t, conf);
+            //check allmedia root path
+            int nRet = zoo_aexists(conf->sch_zk_handle,NGX_HTTP_SCH_ZK_ROOT,0,ngx_media_system_zk_root_exsit_completion_t,conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create root path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+
         }
         else if( state == ZOO_AUTH_FAILED_STATE) {
             zookeeper_close(zh);
@@ -415,8 +469,9 @@ ngx_media_system_zk_watcher(zhandle_t *zh, int type,int state, const char *path,
 static void
 ngx_media_system_zk_init_timer(ngx_media_system_main_conf_t* conf)
 {
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_module:start zookeeper register timer.");
     ngx_memzero(&conf->sch_zk_timer, sizeof(ngx_event_t));
-    conf->sch_zk_timer.handler = ngx_media_system_zk_update;
+    conf->sch_zk_timer.handler = ngx_media_system_zk_check_timeout;
     conf->sch_zk_timer.log     = conf->log;
     conf->sch_zk_timer.data    = conf;
 
@@ -424,10 +479,12 @@ ngx_media_system_zk_init_timer(ngx_media_system_main_conf_t* conf)
 }
 
 static void
-ngx_media_system_zk_update(ngx_event_t *ev)
+ngx_media_system_zk_check_timeout(ngx_event_t *ev)
 {
     ngx_media_system_main_conf_t* conf
             = (ngx_media_system_main_conf_t*)ev->data;
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_module:update zookeeper register info.");
+
     if(NULL == conf->sch_zk_handle) {
         conf->sch_zk_handle
                     = zookeeper_init(conf->sys_conf.str_zk_address,
@@ -695,13 +752,13 @@ ngx_media_system_zk_invoke_stat(ngx_media_system_main_conf_t* conf)
 }
 
 static void
-ngx_media_system_zk_string_completion_t(int rc, const char *value, const void *data)
+ngx_media_system_zk_node_create_completion_t(int rc, const char *value, const void *data)
 {
     ngx_media_system_main_conf_t* conf
               = (ngx_media_system_main_conf_t *)data;
 
 
-    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_string_completion_t: ret:[%d]!",rc);
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_node_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK != rc) {
         ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create zookeeper node");
