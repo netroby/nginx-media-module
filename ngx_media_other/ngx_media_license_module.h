@@ -23,8 +23,15 @@ typedef unsigned __int8     uint8_t;
 
 ngx_uint_t ngx_media_license_task_count();
 ngx_uint_t ngx_media_license_rtmp_channle();
+void       ngx_media_license_rtmp_count(ngx_uint_t count);
+ngx_uint_t ngx_media_license_rtmp_current();
 ngx_uint_t ngx_media_license_rtsp_channle();
+ngx_uint_t ngx_media_license_rtsp_current();
 ngx_uint_t ngx_media_license_hls_channle();
+void       ngx_media_license_hls_count(ngx_uint_t count);
+ngx_uint_t ngx_media_license_hls_current();
+
+
 
 
 #endif /* _NGX_MEDIA_LICENSE_H_INCLUDED_ */

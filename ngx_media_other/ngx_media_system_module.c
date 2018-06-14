@@ -22,6 +22,7 @@
 #include <ngx_files.h>
 #include "ngx_media_system_module.h"
 #include "ngx_media_task_module.h"
+#include "ngx_media_license_module.h"
 #include "libMediaKenerl.h"
 #include "mk_def.h"
 #include "ngx_media_include.h"
@@ -526,7 +527,10 @@ ngx_media_system_zk_update_stat_completion_t(int rc, const char *value, int valu
             root = cJSON_CreateObject();
        }
 
-       cJSON *taskObj;
+       cJSON *taskObj,*taskCount,*taskMax;
+       cJSON *RtmpObj,*RtmpCount,*RtmpMax;
+       cJSON *HlsObj,*HlsCount,*HlsMax;
+       cJSON *RtspObj,*RtspCount,*RtspMax;
        cJSON *cpuObj, *memObj,*memTotalObj,*memUsedObj,*memUnitObj;
        cJSON *signalipObj,*serviceipObj,*ipObj,*ipUnitObj;
        cJSON *totalSize,*recvSize,*sendSize;
@@ -534,13 +538,79 @@ ngx_media_system_zk_update_stat_completion_t(int rc, const char *value, int valu
        cJSON *vpath,*path,*diskSize,*usedSize,*diskUnitObj;
 
 
-       ngx_uint_t count = ngx_media_task_get_cur_count();
+       ngx_uint_t task_count = ngx_media_task_get_cur_count();
+       ngx_uint_t task_max   = ngx_media_license_task_count();
 
-       /* 1.get the trans task info:total,capacity,task */
-       taskObj = cJSON_GetObjectItem(root,"taskcount");
-       if(taskObj == NULL)
-            cJSON_AddItemToObject(root,"taskcount",taskObj = cJSON_CreateNumber(0));
-       cJSON_SetNumberValue(taskObj, count);
+       ngx_uint_t rtmp_count = ngx_media_license_rtmp_current();
+       ngx_uint_t rtmp_max   = ngx_media_license_rtmp_channle();
+
+       ngx_uint_t hls_count  = ngx_media_license_hls_current();
+       ngx_uint_t hls_max    = ngx_media_license_hls_channle();
+
+       ngx_uint_t rtsp_count = ngx_media_license_rtsp_current();
+       ngx_uint_t rtsp_max   = ngx_media_license_rtsp_channle();
+
+       /* 1.get the trans task ,rtmp,hls,rtsp info:total,capacity */
+       /* task */
+       taskObj = cJSON_GetObjectItem(root,"task");
+       if(taskObj == NULL) {
+            cJSON_AddItemToObject(root,"task",taskObj = cJSON_CreateObject());
+       }
+       taskCount = cJSON_GetObjectItem(taskObj,"taskcount");
+       if(taskCount == NULL) {
+            cJSON_AddItemToObject(taskObj,"taskcount",taskCount = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(taskCount, task_count);
+       taskMax = cJSON_GetObjectItem(taskObj,"taskmax");
+       if(taskMax == NULL) {
+            cJSON_AddItemToObject(taskObj,"taskmax",taskMax = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(taskMax, task_max);
+       /* rtmp */
+       RtmpObj = cJSON_GetObjectItem(root,"rtmp");
+       if(RtmpObj == NULL) {
+            cJSON_AddItemToObject(root,"rtmp",RtmpObj = cJSON_CreateObject());
+       }
+       RtmpCount = cJSON_GetObjectItem(RtmpObj,"rtmpcount");
+       if(RtmpCount == NULL) {
+            cJSON_AddItemToObject(RtmpObj,"rtmpcount",RtmpCount = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(RtmpCount, rtmp_count);
+       RtmpMax = cJSON_GetObjectItem(RtmpObj,"rtmpmax");
+       if(RtmpMax == NULL) {
+            cJSON_AddItemToObject(RtmpObj,"rtmpmax",RtmpMax = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(RtmpMax, rtmp_max);
+       /* hls */
+       HlsObj = cJSON_GetObjectItem(root,"hls");
+       if(HlsObj == NULL) {
+            cJSON_AddItemToObject(root,"hls",HlsObj = cJSON_CreateObject());
+       }
+       HlsCount = cJSON_GetObjectItem(HlsObj,"hlscount");
+       if(HlsCount == NULL) {
+            cJSON_AddItemToObject(HlsObj,"hlscount",HlsCount = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(HlsCount, hls_count);
+       HlsMax = cJSON_GetObjectItem(HlsObj,"hlsmax");
+       if(HlsMax == NULL) {
+            cJSON_AddItemToObject(HlsObj,"hlsmax",HlsMax = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(HlsMax, hls_max);
+       /* rtsp */
+       RtspObj = cJSON_GetObjectItem(root,"rtsp");
+       if(RtspObj == NULL) {
+            cJSON_AddItemToObject(root,"rtsp",RtspObj = cJSON_CreateObject());
+       }
+       RtspCount = cJSON_GetObjectItem(RtspObj,"rtspcount");
+       if(RtspCount == NULL) {
+            cJSON_AddItemToObject(RtspObj,"rtspcount",RtspCount = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(RtspCount, rtsp_count);
+       RtspMax = cJSON_GetObjectItem(RtspObj,"rtspmax");
+       if(RtspMax == NULL) {
+            cJSON_AddItemToObject(RtspObj,"rtspmax",RtspMax = cJSON_CreateNumber(0));
+       }
+       cJSON_SetNumberValue(RtspMax, rtsp_max);
        /* 2.get the system info:cpu,memory,disk,network */
        /*cpu,memory*/
        ngx_media_sys_stat_get_cpuinfo(&ullCpuPer);

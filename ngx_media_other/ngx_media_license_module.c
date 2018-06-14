@@ -58,8 +58,11 @@
 typedef struct {
     ngx_uint_t                     taskcount;
     ngx_uint_t                     rtmp_channel;
+    ngx_uint_t                     rtmp_count;
     ngx_uint_t                     hls_channel;
+    ngx_uint_t                     hls_count;
     ngx_uint_t                     rtsp_channel;
+    ngx_uint_t                     rtsp_count;
 } ngx_media_license_info_t;
 
 
@@ -83,15 +86,15 @@ static ngx_http_module_t  ngx_media_license_module_ctx = {
 
 ngx_module_t  ngx_media_license_module = {
     NGX_MODULE_V1,
-    &ngx_media_license_module_ctx,     /* module context */
+    &ngx_media_license_module_ctx,          /* module context */
     NULL,                                   /* module directives */
     NGX_HTTP_MODULE,                        /* module type */
     NULL,                                   /* init master */
     NULL,                                   /* init module */
-    ngx_media_license_init_worker,     /* init process */
+    ngx_media_license_init_worker,          /* init process */
     NULL,                                   /* init thread */
     NULL,                                   /* exit thread */
-    ngx_media_license_exit_worker,     /* exit process */
+    ngx_media_license_exit_worker,          /* exit process */
     NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
 };
@@ -460,8 +463,11 @@ ngx_media_license_init_worker(ngx_cycle_t *cycle)
     }
     g_license_info->taskcount      = LICENSE_TASK_COUNT_DEFAULT;
     g_license_info->rtmp_channel   = LICENSE_RTMP_CHANNEL_DEFAULT;
+    g_license_info->rtmp_count     = 0;
     g_license_info->rtsp_channel   = LICENSE_RTSP_CHANNEL_DEFAULT;
+    g_license_info->rtmp_count     = 0;
     g_license_info->hls_channel    = LICENSE_HLS_CHANNEL_DEFAULT;
+    g_license_info->hls_count      = 0;
 
     ngx_media_license_init(cycle,g_license_info);
 
@@ -491,6 +497,24 @@ ngx_media_license_rtmp_channle()
     }
     return g_license_info->rtmp_channel;
 }
+void
+ngx_media_license_rtmp_count(ngx_uint_t count)
+{
+    if(NULL == g_license_info) {
+        return ;
+    }
+    g_license_info->rtmp_count = count;
+}
+ngx_uint_t
+ngx_media_license_rtmp_current()
+{
+    if(NULL == g_license_info) {
+        return 0;
+    }
+    return g_license_info->rtmp_count;
+}
+
+
 ngx_uint_t
 ngx_media_license_rtsp_channle()
 {
@@ -500,12 +524,35 @@ ngx_media_license_rtsp_channle()
     return g_license_info->rtsp_channel;
 }
 ngx_uint_t
+ngx_media_license_rtsp_current()
+{
+    return 0;
+}
+
+ngx_uint_t
 ngx_media_license_hls_channle()
 {
     if(NULL == g_license_info) {
         return LICENSE_HLS_CHANNEL_DEFAULT;
     }
     return g_license_info->hls_channel;
+}
+void
+ngx_media_license_hls_count(ngx_uint_t count)
+{
+    if(NULL == g_license_info) {
+        return ;
+    }
+    g_license_info->hls_count = count;
+}
+
+ngx_uint_t
+ngx_media_license_hls_current()
+{
+    if(NULL == g_license_info) {
+        return 0;
+    }
+    return g_license_info->hls_count;
 }
 
 

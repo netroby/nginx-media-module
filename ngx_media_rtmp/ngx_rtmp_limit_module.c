@@ -7,6 +7,10 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "ngx_rtmp.h"
+/* begin:add by H.Kernel for license control */
+#include "ngx_media_license_module.h"
+/* end:add by H.Kernel for license control */
+
 
 
 typedef struct {
@@ -101,6 +105,22 @@ ngx_rtmp_limit_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_shmtx_lock(&shpool->mutex);
     n = ++*nconn;
     ngx_shmtx_unlock(&shpool->mutex);
+
+    /* begin:add by H.Kernel for license control */
+    ngx_uint_t rtmp_max = ngx_media_license_rtmp_channle();
+    rc = n > rtmp_max ? NGX_ERROR : NGX_OK;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "license: rtmp inc conection counter: %uD", n);
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "license: too many connections: %uD > %i",
+                      n, lmcf->max_conn);
+        return rc;
+    }
+    ngx_media_license_rtmp_count(n);
+    /* end:add by H.Kernel for license control */
 
     rc = n > (ngx_uint_t) lmcf->max_conn ? NGX_ERROR : NGX_OK;
 

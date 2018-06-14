@@ -212,6 +212,7 @@ ngx_media_live_hls_first_req(ngx_http_request_t *r)
                       "hls session is full,count:[%d],license:[%d].",count,licesen);
         return NGX_HTTP_NOT_ALLOWED;
     }
+    ngx_media_license_hls_count(count);
 
 
     s = ngx_media_live_get_free_session(conf->ctx,&r->uri,&r->args);
