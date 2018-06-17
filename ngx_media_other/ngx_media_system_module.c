@@ -564,7 +564,7 @@ ngx_media_system_zk_transcode_exsit_completion_t(int rc, const struct Stat *stat
         if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
             &&(NULL != conf->sys_conf.str_zk_trans_path)){
             nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_trans_path, NULL, -1,
-                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
                             ngx_media_system_zk_transcode_node_create_completion_t, conf);
             if(ZOK != nRet) {
                 ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create transcode node path fail,so disconnect and try again later.");
@@ -599,7 +599,7 @@ ngx_media_system_zk_transcode_create_completion_t(int rc, const char *value, con
         if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
             &&(NULL != conf->sys_conf.str_zk_trans_path)){
             nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_trans_path, NULL, -1,
-                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
                             ngx_media_system_zk_transcode_node_create_completion_t, conf);
             if(ZOK != nRet) {
                 ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create transcode node path fail,so disconnect and try again later.");
@@ -669,7 +669,7 @@ ngx_media_system_zk_access_exsit_completion_t(int rc, const struct Stat *stat,co
         if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
             &&(NULL != conf->sys_conf.str_zk_access_path)){
             nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_access_path, NULL, -1,
-                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
                             ngx_media_system_zk_access_node_create_completion_t, conf);
             if(ZOK != nRet) {
                 ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create access node path fail,so disconnect and try again later.");
@@ -704,7 +704,7 @@ ngx_media_system_zk_access_create_completion_t(int rc, const char *value, const 
         if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
             &&(NULL != conf->sys_conf.str_zk_access_path)){
             nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_access_path, NULL, -1,
-                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
                             ngx_media_system_zk_access_node_create_completion_t, conf);
             if(ZOK != nRet) {
                 ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create access node path fail,so disconnect and try again later.");
@@ -772,7 +772,7 @@ ngx_media_system_zk_stream_exsit_completion_t(int rc, const struct Stat *stat,co
         if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
             &&(NULL != conf->sys_conf.str_zk_stream_path)){
             nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_stream_path, NULL, -1,
-                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
                             ngx_media_system_zk_stream_node_create_completion_t, conf);
             if(ZOK != nRet) {
                 ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create stream node path fail,so disconnect and try again later.");
@@ -807,7 +807,7 @@ ngx_media_system_zk_stream_create_completion_t(int rc, const char *value, const 
         if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
             &&(NULL != conf->sys_conf.str_zk_stream_path)){
             nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_stream_path, NULL, -1,
-                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
                             ngx_media_system_zk_stream_node_create_completion_t, conf);
             if(ZOK != nRet) {
                 ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create stream node path fail,so disconnect and try again later.");
