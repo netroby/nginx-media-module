@@ -14,7 +14,7 @@
 
 #define STAT_PATH_LEN 128
 
-#define NGX_BANDWIDTH_DEFAULT        1000
+#define NGX_BANDWIDTH_DEFAULT        1000*1024
 #define ABNOMAL_VALUE 0xFFFF
 #define BOND_MODE_ACTIVEBACKUP 1
 #define BOND_STATE_ACTIVE 0   /* link is active */
@@ -490,8 +490,8 @@ ngx_media_sys_stat_get_networkcardinfo(u_char* strIP, ngx_uint_t* ulTotalSize,
         if(0 == ngx_strncmp((const char*)&netcardInfo->m_strIP[0], strIP, ngx_strlen(strIP)))
         {
             *ulTotalSize    = netcardInfo->m_ulBWTotal;
-            *ulUsedRecvSize = netcardInfo->m_ulBWUsedRecv[NGX_STAT_INTERVAL_NUM] / 1024;
-            *ulUsedSendSize = netcardInfo->m_ulBWUsedSend[NGX_STAT_INTERVAL_NUM] / 1024;
+            *ulUsedRecvSize = netcardInfo->m_ulBWUsedRecv[NGX_STAT_INTERVAL_NUM];
+            *ulUsedSendSize = netcardInfo->m_ulBWUsedSend[NGX_STAT_INTERVAL_NUM];
             if (ngx_thread_mutex_unlock(&g_VideoSysStat->StatMutex,g_VideoSysStat->log) != NGX_OK) {
                 return NGX_OK;
             }
@@ -805,7 +805,7 @@ ngx_media_sys_stat_stat_networkcard_info()
         *pBWAvgSend = *pBWAvgSend / NGX_STAT_INTERVAL_NUM;
 
         ngx_log_error(NGX_LOG_DEBUG, g_VideoSysStat->log, 0,
-                    "Netcard stat info:NetCard[%s:%s], totalBW[%u]Mbps,Recv[%u]kbps,Send[%u]kbps.",
+                    "Netcard stat info:NetCard[%s:%s], totalBW[%uD]Mbps,Recv[%uD]kbps,Send[%uD]kbps.",
                     netcardInfo->m_strName,
                     netcardInfo->m_strIP,
                     netcardInfo->m_ulBWTotal,

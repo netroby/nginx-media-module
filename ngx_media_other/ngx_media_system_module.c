@@ -1090,7 +1090,7 @@ ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const c
 
         ipUnitObj = cJSON_GetObjectItem(signalipObj,"uint");
         if(ipUnitObj == NULL){
-            cJSON_AddItemToObject(signalipObj,"uint",ipUnitObj = cJSON_CreateString("Mbps"));
+            cJSON_AddItemToObject(signalipObj,"uint",ipUnitObj = cJSON_CreateString("kbps"));
         }
 
         totalSize = cJSON_GetObjectItem(signalipObj,"total");
@@ -1128,7 +1128,7 @@ ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const c
         }
         ipUnitObj = cJSON_GetObjectItem(serviceipObj,"uint");
         if(ipUnitObj == NULL){
-            cJSON_AddItemToObject(serviceipObj,"uint",ipUnitObj = cJSON_CreateString("Mbps"));
+            cJSON_AddItemToObject(serviceipObj,"uint",ipUnitObj = cJSON_CreateString("kbps"));
         }
         totalSize = cJSON_GetObjectItem(serviceipObj,"total");
         if(totalSize == NULL){
