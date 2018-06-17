@@ -43,6 +43,8 @@
 
 
 #define NGX_HTTP_SCH_ZK_ADDR      "sch_zk_address"
+#define NGX_HTTP_SCH_ZK_SERVERID  "sch_zk_server_id"
+#define NGX_HTTP_SCH_ZK_SERTYPE   "sch_zk_server_type"
 #define NGX_HTTP_SCH_ZK_UPDATE    "sch_zk_update"
 #define NGX_HTTP_SCH_ZK_SIGIP     "sch_signal_ip"
 #define NGX_HTTP_SCH_ZK_SERIP     "sch_service_ip"
@@ -54,13 +56,20 @@
 #define NGX_HTTP_SCH_LOAD_DISK    "sch_load_disk"
 
 #define NGX_HTTP_SCH_ZK_ROOT      "/allmedia"
+#define NGX_HTTP_SCH_ZK_TRANSCODE "/allmedia/transcode"
+#define NGX_HTTP_SCH_ZK_ACCESS    "/allmedia/access"
+#define NGX_HTTP_SCH_ZK_STREAM    "/allmedia/stream"
+
+#define NGX_ALLMEDIA_TYPE_TRANSCODE   0x01
+#define NGX_ALLMEDIA_TYPE_ACCESS      0x02
+#define NGX_ALLMEDIA_TYPE_STREAM      0x04
+#define NGX_ALLMEDIA_TYPE_ALL         (NGX_ALLMEDIA_TYPE_TRANSCODE|NGX_ALLMEDIA_TYPE_ACCESS|NGX_ALLMEDIA_TYPE_STREAM)
+
+
 
 #define NGX_HTTP_SYS_MANAGE       "sys_manage"
 
-
-
 /* common define */
-#define LOCAL_RTMP_URl       "rtmp://127.0.0.1:1935/rtmp"
 
 #define COMMON_XML_REQ          "req"
 #define COMMON_XML_REQ_TYPE     "type"

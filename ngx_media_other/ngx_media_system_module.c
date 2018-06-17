@@ -35,7 +35,11 @@
 typedef struct {
     ngx_str_t                       sch_zk_address;
     char                           *str_zk_address;
-    char                           *str_zk_path;
+    ngx_str_t                       sch_zk_server_id;
+    ngx_uint_t                      sch_server_flags;
+    char                           *str_zk_trans_path;
+    char                           *str_zk_access_path;
+    char                           *str_zk_stream_path;
     ngx_msec_t                      sch_zk_update;
     ngx_str_t                       sch_signal_ip;
     ngx_str_t                       sch_service_ip;
@@ -65,14 +69,23 @@ static void*     ngx_media_system_create_main_conf(ngx_conf_t *cf);
 /*************************zookeeper schedule****************************/
 static void      ngx_media_system_zk_root_exsit_completion_t(int rc, const struct Stat *stat,const void *data);
 static void      ngx_media_system_zk_root_create_completion_t(int rc, const char *value, const void *data);
-
-
+static void      ngx_media_system_zk_transcode_exsit_completion_t(int rc, const struct Stat *stat,const void *data);
+static void      ngx_media_system_zk_transcode_create_completion_t(int rc, const char *value, const void *data);
+static void      ngx_media_system_zk_transcode_node_create_completion_t(int rc, const char *value, const void *data);
+static void      ngx_media_system_zk_transcode_get_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data);
+static void      ngx_media_system_zk_access_exsit_completion_t(int rc, const struct Stat *stat,const void *data);
+static void      ngx_media_system_zk_access_create_completion_t(int rc, const char *value, const void *data);
+static void      ngx_media_system_zk_access_node_create_completion_t(int rc, const char *value, const void *data);
+static void      ngx_media_system_zk_access_get_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data);
+static void      ngx_media_system_zk_stream_exsit_completion_t(int rc, const struct Stat *stat,const void *data);
+static void      ngx_media_system_zk_stream_create_completion_t(int rc, const char *value, const void *data);
+static void      ngx_media_system_zk_stream_node_create_completion_t(int rc, const char *value, const void *data);
+static void      ngx_media_system_zk_stream_get_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data);
+static void      ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const char *value, int value_len,char* zk_path);
 static void      ngx_media_system_zk_watcher(zhandle_t *zh, int type,int state, const char *path,void *watcherCtx);
 static void      ngx_media_system_zk_init_timer(ngx_media_system_main_conf_t* conf);
 static void      ngx_media_system_zk_check_timeout(ngx_event_t *ev);
-static void      ngx_media_system_zk_invoke_stat(ngx_media_system_main_conf_t* conf);
-static void      ngx_media_system_zk_node_create_completion_t(int rc, const char *value, const void *data);
-static void      ngx_media_system_zk_update_stat_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data);
+static void      ngx_media_system_zk_invoke_stat(ngx_media_system_main_conf_t* conf,ngx_uint_t flag);
 static void      ngx_media_system_zk_stat_completion_t(int rc, const struct Stat *stat,const void *data);
 
 
@@ -92,6 +105,16 @@ static ngx_int_t ngx_media_system_deal_xml_req(ngx_http_request_t *r,const char*
 static void      ngx_media_system_recv_request(ngx_http_request_t *r);
 
 
+static ngx_conf_bitmask_t  ngx_media_zk_type_mask[] = {
+    { ngx_string("all"),                NGX_ALLMEDIA_TYPE_ALL       },
+    { ngx_string("transcode"),          NGX_ALLMEDIA_TYPE_TRANSCODE },
+    { ngx_string("access"),             NGX_ALLMEDIA_TYPE_ACCESS    },
+    { ngx_string("stream"),             NGX_ALLMEDIA_TYPE_STREAM    },
+    { ngx_null_string,                  0                           }
+};
+
+
+
 static ngx_command_t  ngx_media_system_commands[] = {
 
     { ngx_string(NGX_HTTP_SYS_MANAGE),
@@ -107,6 +130,20 @@ static ngx_command_t  ngx_media_system_commands[] = {
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_media_system_main_conf_t, sys_conf.sch_zk_address),
       NULL },
+
+    { ngx_string(NGX_HTTP_SCH_ZK_SERVERID),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_media_system_main_conf_t, sys_conf.sch_zk_server_id),
+      NULL },
+
+    { ngx_string(NGX_HTTP_SCH_ZK_SERTYPE),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+      ngx_conf_set_bitmask_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_media_system_main_conf_t, sys_conf.sch_server_flags),
+      ngx_media_zk_type_mask },
 
     { ngx_string(NGX_HTTP_SCH_ZK_UPDATE),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -221,6 +258,7 @@ ngx_media_system_create_main_conf(ngx_conf_t *cf)
 
 
     ngx_str_null(&mconf->sys_conf.sch_zk_address);
+    ngx_str_null(&mconf->sys_conf.sch_zk_server_id);
     ngx_str_null(&mconf->sys_conf.sch_signal_ip);
     ngx_str_null(&mconf->sys_conf.sch_service_ip);
     mconf->sys_conf.sch_disk_vpath = ngx_array_create(cf->pool, TRANS_VPATH_KV_MAX,
@@ -228,14 +266,16 @@ ngx_media_system_create_main_conf(ngx_conf_t *cf)
     if (mconf->sys_conf.sch_disk_vpath == NULL) {
         return NULL;
     }
-    mconf->sch_zk_handle = NULL;
-    mconf->sys_conf.str_zk_address= NULL;
-    mconf->sys_conf.str_zk_path   = NULL;
-    mconf->sys_conf.sch_zk_update = NGX_CONF_UNSET;
+    mconf->sch_zk_handle               = NULL;
+    mconf->sys_conf.str_zk_address     = NULL;
+    mconf->sys_conf.str_zk_trans_path  = NULL;
+    mconf->sys_conf.str_zk_access_path = NULL;
+    mconf->sys_conf.str_zk_stream_path = NULL;
+    mconf->sys_conf.sch_zk_update      = NGX_CONF_UNSET;
 
-    mconf->log           = NULL;
-    mconf->pool          = NULL;
-    g_VideoSysConf       = &mconf->sys_conf;
+    mconf->log                         = NULL;
+    mconf->pool                        = NULL;
+    g_VideoSysConf                     = &mconf->sys_conf;
 
     return mconf;
 }
@@ -320,6 +360,11 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
 
     ngx_log_error(NGX_LOG_DEBUG, cycle->log, 0, "ngx_media_system_module,the process:[%d] is 0,so start zookeepr.",ngx_process_slot);
 
+    if( (NULL == mainconf->sys_conf.sch_zk_server_id.data) || (0 == mainconf->sys_conf.sch_zk_server_id.len)) {
+        ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: NO server ID address,so no need register");
+        return NGX_OK;
+    }
+
     if( (NULL == mainconf->sys_conf.sch_signal_ip.data) || (0 == mainconf->sys_conf.sch_signal_ip.len)) {
         ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: NO control IP address,so no need register");
         return NGX_OK;
@@ -336,13 +381,7 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
                                               mainconf->sys_conf.sch_zk_address.len+1);
     }
 
-    if(NULL == mainconf->sys_conf.str_zk_path) {
-        mainconf->sys_conf.str_zk_path = ngx_pcalloc(cycle->pool,
-                                              mainconf->sys_conf.sch_signal_ip.len + ngx_strlen(NGX_HTTP_SCH_ZK_ROOT) + 2);
-    }
-
-    if((NULL == mainconf->sys_conf.str_zk_address)
-        ||(NULL == mainconf->sys_conf.str_zk_path)) {
+    if(NULL == mainconf->sys_conf.str_zk_address) {
         ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: create the zk info fail,so no need register");
         return NGX_OK;
     }
@@ -352,14 +391,50 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
                  mainconf->sys_conf.sch_zk_address.len);
     *last = '\0';
 
-    last = ngx_cpymem((u_char *)mainconf->sys_conf.str_zk_path,
-                 NGX_HTTP_SCH_ZK_ROOT,ngx_strlen(NGX_HTTP_SCH_ZK_ROOT));
-    *last = '/';
-    last++;
-    last = ngx_cpymem((u_char *)last,
-                 mainconf->sys_conf.sch_signal_ip.data,
-                 mainconf->sys_conf.sch_signal_ip.len);
-    *last = '\0';
+    if(NGX_ALLMEDIA_TYPE_TRANSCODE == (mainconf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE)) {
+        if(NULL == mainconf->sys_conf.str_zk_trans_path) {
+            mainconf->sys_conf.str_zk_trans_path = ngx_pcalloc(cycle->pool,
+                                                  mainconf->sys_conf.sch_zk_server_id.len
+                                                  + ngx_strlen(NGX_HTTP_SCH_ZK_TRANSCODE)+ 2);
+        }
+        last = ngx_cpymem((u_char *)mainconf->sys_conf.str_zk_trans_path,
+                 NGX_HTTP_SCH_ZK_TRANSCODE,ngx_strlen(NGX_HTTP_SCH_ZK_TRANSCODE));
+        *last = '/';
+        last++;
+        last = ngx_cpymem(last,mainconf->sys_conf.sch_zk_server_id.data,
+                                mainconf->sys_conf.sch_zk_server_id.len);
+        *last = '\0';
+    }
+
+    if(NGX_ALLMEDIA_TYPE_ACCESS == (mainconf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS)) {
+        if(NULL == mainconf->sys_conf.str_zk_access_path) {
+            mainconf->sys_conf.str_zk_access_path = ngx_pcalloc(cycle->pool,
+                                                  mainconf->sys_conf.sch_zk_server_id.len
+                                                  + ngx_strlen(NGX_HTTP_SCH_ZK_ACCESS)+ 2);
+        }
+        last = ngx_cpymem((u_char *)mainconf->sys_conf.str_zk_access_path,
+                 NGX_HTTP_SCH_ZK_ACCESS,ngx_strlen(NGX_HTTP_SCH_ZK_ACCESS));
+        *last = '/';
+        last++;
+        last = ngx_cpymem(last,mainconf->sys_conf.sch_zk_server_id.data,
+                               mainconf->sys_conf.sch_zk_server_id.len);
+        *last = '\0';
+    }
+
+    if(NGX_ALLMEDIA_TYPE_STREAM == (mainconf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM)) {
+        if(NULL == mainconf->sys_conf.str_zk_stream_path) {
+            mainconf->sys_conf.str_zk_stream_path = ngx_pcalloc(cycle->pool,
+                                                  mainconf->sys_conf.sch_zk_server_id.len
+                                                  + ngx_strlen(NGX_HTTP_SCH_ZK_STREAM)+ 2);
+        }
+        last = ngx_cpymem((u_char *)mainconf->sys_conf.str_zk_stream_path,
+                 NGX_HTTP_SCH_ZK_STREAM,ngx_strlen(NGX_HTTP_SCH_ZK_STREAM));
+        *last = '/';
+        last++;
+        last = ngx_cpymem(last,mainconf->sys_conf.sch_zk_server_id.data,
+                               mainconf->sys_conf.sch_zk_server_id.len);
+        *last = '\0';
+    }
 
 
 #if (NGX_DEBUG)
@@ -390,12 +465,37 @@ static void
 ngx_media_system_zk_root_exsit_completion_t(int rc, const struct Stat *stat,const void *data)
 {
     ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    int nRet =  ZOK;
     if(rc == ZOK) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"check the zookeeper root path success,so create the child path.");
-        // create node
-        zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_path, NULL, -1,
-                        &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
-                        ngx_media_system_zk_node_create_completion_t, conf);
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"check the zookeeper allmedia path success,so check the child path.");
+        // check transcode
+        if(NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE)) {
+            nRet = zoo_aexists(conf->sch_zk_handle,NGX_HTTP_SCH_ZK_TRANSCODE,0,
+                                            ngx_media_system_zk_transcode_exsit_completion_t,conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create transcode path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+        //check access
+        if(NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS)) {
+            nRet = zoo_aexists(conf->sch_zk_handle,NGX_HTTP_SCH_ZK_ACCESS,0,ngx_media_system_zk_access_exsit_completion_t,conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create access path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+        //check stream
+        if(NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM)) {
+            nRet = zoo_aexists(conf->sch_zk_handle,NGX_HTTP_SCH_ZK_STREAM,0,ngx_media_system_zk_stream_exsit_completion_t,conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create stream path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
     }
     else {
         ngx_log_error(NGX_LOG_WARN, conf->log, 0,"the zookeeper root path is not exsti,so create it,error info:%s",zerror(rc));
@@ -411,21 +511,357 @@ ngx_media_system_zk_root_create_completion_t(int rc, const char *value, const vo
 {
     ngx_media_system_main_conf_t* conf
               = (ngx_media_system_main_conf_t *)data;
-
+    int nRet =  ZOK;
 
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_root_create_completion_t: ret:[%d]!",rc);
 
-    if (ZOK != rc) {
+    if (ZOK == rc || ZNODEEXISTS == rc) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper allmedia path success,so check the child path.");
+        // check transcode
+        if(NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE)) {
+            nRet = zoo_aexists(conf->sch_zk_handle,NGX_HTTP_SCH_ZK_TRANSCODE,0,
+                                            ngx_media_system_zk_transcode_exsit_completion_t,conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create transcode path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+        //check access
+        if(NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS)) {
+            nRet = zoo_aexists(conf->sch_zk_handle,NGX_HTTP_SCH_ZK_ACCESS,0,ngx_media_system_zk_access_exsit_completion_t,conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create access path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+        //check stream
+        if(NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM)) {
+            nRet = zoo_aexists(conf->sch_zk_handle,NGX_HTTP_SCH_ZK_STREAM,0,ngx_media_system_zk_stream_exsit_completion_t,conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create stream path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+    }
+    else{
         ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create zookeeper root node");
         zookeeper_close(conf->sch_zk_handle);
         conf->sch_zk_handle = NULL;
     }
+}
+static void
+ngx_media_system_zk_transcode_exsit_completion_t(int rc, const struct Stat *stat,const void *data)
+{
+    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    int nRet =  ZOK;
+    if(rc == ZOK) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"check the zookeeper transcode path success,so create the child path.");
+        // create transcode node
+        if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
+            &&(NULL != conf->sys_conf.str_zk_trans_path)){
+            nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_trans_path, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_transcode_node_create_completion_t, conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create transcode node path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+    }
     else {
+        if(NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE)) {
+            ngx_log_error(NGX_LOG_WARN, conf->log, 0,"the zookeeper transcode path is not exsti,so create it,error info:%s",zerror(rc));
+            zoo_acreate(conf->sch_zk_handle, NGX_HTTP_SCH_ZK_TRANSCODE, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_transcode_create_completion_t, conf);
+        }
+
+    }
+}
+static void
+ngx_media_system_zk_transcode_create_completion_t(int rc, const char *value, const void *data)
+{
+    ngx_media_system_main_conf_t* conf
+              = (ngx_media_system_main_conf_t *)data;
+    int nRet =  ZOK;
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_transcode_create_completion_t: ret:[%d]!",rc);
+
+    if (ZOK == rc || ZNODEEXISTS == rc) {
         ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
-        // create node
-        zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_path, NULL, -1,
-                        &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL,
-                        ngx_media_system_zk_node_create_completion_t, conf);
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper transcode path success,so create the child path.");
+        // check transcode
+        if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
+            &&(NULL != conf->sys_conf.str_zk_trans_path)){
+            nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_trans_path, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_transcode_node_create_completion_t, conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create transcode node path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+    }
+    else {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create transcode root node");
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+
+    }
+}
+static void
+ngx_media_system_zk_transcode_node_create_completion_t(int rc, const char *value, const void *data)
+{
+    ngx_media_system_main_conf_t* conf
+              = (ngx_media_system_main_conf_t *)data;
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_transcode_node_create_completion_t: ret:[%d]!",rc);
+
+    if (ZOK == rc || ZNODEEXISTS == rc) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        /* try update the service stat info */
+        ngx_media_system_zk_invoke_stat(conf,NGX_ALLMEDIA_TYPE_TRANSCODE);
+    }
+    else {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create zookeeper node");
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+    }
+
+}
+
+static void
+ngx_media_system_zk_transcode_get_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data)
+{
+    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_transcode_get_completion_t:ret:[%d].",rc);
+
+    if(rc == ZOK)
+    {
+       if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
+            &&(NULL != conf->sys_conf.str_zk_trans_path)){
+           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_trans_path);
+       }
+
+    }
+    else {
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "zookeeper error info:%s", zerror(rc));
+    }
+}
+
+
+static void
+ngx_media_system_zk_access_exsit_completion_t(int rc, const struct Stat *stat,const void *data)
+{
+    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    int nRet =  ZOK;
+    if(rc == ZOK) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"check the zookeeper access path success,so create the child path.");
+        // create transcode node
+        if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
+            &&(NULL != conf->sys_conf.str_zk_access_path)){
+            nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_access_path, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_access_node_create_completion_t, conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create access node path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+    }
+    else {
+        if(NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS)) {
+            ngx_log_error(NGX_LOG_WARN, conf->log, 0,"the zookeeper access path is not exsti,so create it,error info:%s",zerror(rc));
+            zoo_acreate(conf->sch_zk_handle, NGX_HTTP_SCH_ZK_ACCESS, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_access_create_completion_t, conf);
+        }
+
+    }
+}
+static void
+ngx_media_system_zk_access_create_completion_t(int rc, const char *value, const void *data)
+{
+    ngx_media_system_main_conf_t* conf
+              = (ngx_media_system_main_conf_t *)data;
+    int nRet =  ZOK;
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_access_create_completion_t: ret:[%d]!",rc);
+
+    if (ZOK == rc || ZNODEEXISTS == rc) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper access path success,so create the child path.");
+        // check transcode
+        if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
+            &&(NULL != conf->sys_conf.str_zk_access_path)){
+            nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_access_path, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_access_node_create_completion_t, conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create access node path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+    }
+    else {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create access root node");
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+    }
+}
+static void
+ngx_media_system_zk_access_node_create_completion_t(int rc, const char *value, const void *data)
+{
+    ngx_media_system_main_conf_t* conf
+              = (ngx_media_system_main_conf_t *)data;
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_access_node_create_completion_t: ret:[%d]!",rc);
+
+    if (ZOK == rc || ZNODEEXISTS == rc) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        /* try update the service stat info */
+        ngx_media_system_zk_invoke_stat(conf,NGX_ALLMEDIA_TYPE_ACCESS);
+
+    }
+    else {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create zookeeper access node");
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+    }
+}
+static void
+ngx_media_system_zk_access_get_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data)
+{
+    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_access_get_completion_t:ret:[%d].",rc);
+
+    if(rc == ZOK)
+    {
+       if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
+            &&(NULL != conf->sys_conf.str_zk_access_path)){
+           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_access_path);
+       }
+
+    }
+    else {
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "zookeeper error info:%s", zerror(rc));
+    }
+}
+
+
+static void
+ngx_media_system_zk_stream_exsit_completion_t(int rc, const struct Stat *stat,const void *data)
+{
+    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    int nRet =  ZOK;
+    if(rc == ZOK) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"check the zookeeper stream path success,so create the child path.");
+        // create transcode node
+        if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
+            &&(NULL != conf->sys_conf.str_zk_stream_path)){
+            nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_stream_path, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_stream_node_create_completion_t, conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create stream node path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+    }
+    else {
+        if(NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM)) {
+            ngx_log_error(NGX_LOG_WARN, conf->log, 0,"the zookeeper stream path is not exsti,so create it,error info:%s",zerror(rc));
+            zoo_acreate(conf->sch_zk_handle, NGX_HTTP_SCH_ZK_STREAM, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_stream_create_completion_t, conf);
+        }
+
+    }
+}
+static void
+ngx_media_system_zk_stream_create_completion_t(int rc, const char *value, const void *data)
+{
+    ngx_media_system_main_conf_t* conf
+              = (ngx_media_system_main_conf_t *)data;
+    int nRet =  ZOK;
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_stream_create_completion_t: ret:[%d]!",rc);
+
+    if (ZOK == rc || ZNODEEXISTS == rc) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper stream path success,so create the child path.");
+        // check transcode
+        if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
+            &&(NULL != conf->sys_conf.str_zk_stream_path)){
+            nRet = zoo_acreate(conf->sch_zk_handle, conf->sys_conf.str_zk_stream_path, NULL, -1,
+                            &ZOO_OPEN_ACL_UNSAFE, 0,
+                            ngx_media_system_zk_stream_node_create_completion_t, conf);
+            if(ZOK != nRet) {
+                ngx_log_error(NGX_LOG_WARN, conf->log, 0,"create stream node path fail,so disconnect and try again later.");
+                zookeeper_close(conf->sch_zk_handle);
+                conf->sch_zk_handle = NULL;
+            }
+        }
+    }
+    else {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create stream root node");
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+    }
+}
+
+
+static void
+ngx_media_system_zk_stream_node_create_completion_t(int rc, const char *value, const void *data)
+{
+    ngx_media_system_main_conf_t* conf
+              = (ngx_media_system_main_conf_t *)data;
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_stream_node_create_completion_t: ret:[%d]!",rc);
+
+    if (ZOK == rc || ZNODEEXISTS == rc) {
+        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        /* try update the service stat info */
+        ngx_media_system_zk_invoke_stat(conf,NGX_ALLMEDIA_TYPE_STREAM);
+    }
+    else {
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create zookeeper access node");
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+    }
+}
+
+static void
+ngx_media_system_zk_stream_get_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data)
+{
+    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_stream_get_completion_t:ret:[%d].",rc);
+
+    if(rc == ZOK)
+    {
+       if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
+            &&(NULL != conf->sys_conf.str_zk_stream_path)){
+           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_stream_path);
+       }
+
+    }
+    else {
+        zookeeper_close(conf->sch_zk_handle);
+        conf->sch_zk_handle = NULL;
+        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "zookeeper error info:%s", zerror(rc));
     }
 }
 
@@ -496,12 +932,12 @@ ngx_media_system_zk_check_timeout(ngx_event_t *ev)
         }
     }
     else {
-        ngx_media_system_zk_invoke_stat(conf);
+        ngx_media_system_zk_invoke_stat(conf,NGX_ALLMEDIA_TYPE_ALL);
     }
     ngx_add_timer(&conf->sch_zk_timer, conf->sys_conf.sch_zk_update);
 }
 static void
-ngx_media_system_zk_update_stat_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data)
+ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const char *value, int value_len,char* zk_path)
 {
     ngx_uint_t i              = 0;
     ngx_uint_t ullCpuPer      = 0;
@@ -516,273 +952,263 @@ ngx_media_system_zk_update_stat_completion_t(int rc, const char *value, int valu
 
     ngx_memzero(&cbuf,TRANS_STRING_MAX_LEN);
 
-    ngx_media_system_main_conf_t* conf = (ngx_media_system_main_conf_t*)data;
-    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_update_stat_completion_t:ret:[%d].",rc);
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_sync_system_info,begin");
 
-    if(rc == ZOK)
+    cJSON *root = cJSON_Parse(value);
+    if(root == NULL)
     {
-       cJSON *root = cJSON_Parse(value);
-       if(root == NULL)
-       {
-            root = cJSON_CreateObject();
-       }
+        root = cJSON_CreateObject();
+    }
 
-       cJSON *taskObj,*taskCount,*taskMax;
-       cJSON *RtmpObj,*RtmpCount,*RtmpMax;
-       cJSON *HlsObj,*HlsCount,*HlsMax;
-       cJSON *RtspObj,*RtspCount,*RtspMax;
-       cJSON *cpuObj, *memObj,*memTotalObj,*memUsedObj,*memUnitObj;
-       cJSON *signalipObj,*serviceipObj,*ipObj,*ipUnitObj;
-       cJSON *totalSize,*recvSize,*sendSize;
-       cJSON *diskList,*diskObj;
-       cJSON *vpath,*path,*diskSize,*usedSize,*diskUnitObj;
+    cJSON *taskObj,*taskCount,*taskMax;
+    cJSON *RtmpObj,*RtmpCount,*RtmpMax;
+    cJSON *HlsObj,*HlsCount,*HlsMax;
+    cJSON *RtspObj,*RtspCount,*RtspMax;
+    cJSON *cpuObj, *memObj,*memTotalObj,*memUsedObj,*memUnitObj;
+    cJSON *signalipObj,*serviceipObj,*ipObj,*ipUnitObj;
+    cJSON *totalSize,*recvSize,*sendSize;
+    cJSON *diskList,*diskObj;
+    cJSON *vpath,*path,*diskSize,*usedSize,*diskUnitObj;
 
 
-       ngx_uint_t task_count = ngx_media_task_get_cur_count();
-       ngx_uint_t task_max   = ngx_media_license_task_count();
+    ngx_uint_t task_count = ngx_media_task_get_cur_count();
+    ngx_uint_t task_max   = ngx_media_license_task_count();
 
-       ngx_uint_t rtmp_count = ngx_media_license_rtmp_current();
-       ngx_uint_t rtmp_max   = ngx_media_license_rtmp_channle();
+    ngx_uint_t rtmp_count = ngx_media_license_rtmp_current();
+    ngx_uint_t rtmp_max   = ngx_media_license_rtmp_channle();
 
-       ngx_uint_t hls_count  = ngx_media_license_hls_current();
-       ngx_uint_t hls_max    = ngx_media_license_hls_channle();
+    ngx_uint_t hls_count  = ngx_media_license_hls_current();
+    ngx_uint_t hls_max    = ngx_media_license_hls_channle();
 
-       ngx_uint_t rtsp_count = ngx_media_license_rtsp_current();
-       ngx_uint_t rtsp_max   = ngx_media_license_rtsp_channle();
+    ngx_uint_t rtsp_count = ngx_media_license_rtsp_current();
+    ngx_uint_t rtsp_max   = ngx_media_license_rtsp_channle();
 
-       /* 1.get the trans task ,rtmp,hls,rtsp info:total,capacity */
-       /* task */
-       taskObj = cJSON_GetObjectItem(root,"task");
-       if(taskObj == NULL) {
-            cJSON_AddItemToObject(root,"task",taskObj = cJSON_CreateObject());
-       }
-       taskCount = cJSON_GetObjectItem(taskObj,"taskcount");
-       if(taskCount == NULL) {
-            cJSON_AddItemToObject(taskObj,"taskcount",taskCount = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(taskCount, task_count);
-       taskMax = cJSON_GetObjectItem(taskObj,"taskmax");
-       if(taskMax == NULL) {
-            cJSON_AddItemToObject(taskObj,"taskmax",taskMax = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(taskMax, task_max);
-       /* rtmp */
-       RtmpObj = cJSON_GetObjectItem(root,"rtmp");
-       if(RtmpObj == NULL) {
-            cJSON_AddItemToObject(root,"rtmp",RtmpObj = cJSON_CreateObject());
-       }
-       RtmpCount = cJSON_GetObjectItem(RtmpObj,"rtmpcount");
-       if(RtmpCount == NULL) {
-            cJSON_AddItemToObject(RtmpObj,"rtmpcount",RtmpCount = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(RtmpCount, rtmp_count);
-       RtmpMax = cJSON_GetObjectItem(RtmpObj,"rtmpmax");
-       if(RtmpMax == NULL) {
-            cJSON_AddItemToObject(RtmpObj,"rtmpmax",RtmpMax = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(RtmpMax, rtmp_max);
-       /* hls */
-       HlsObj = cJSON_GetObjectItem(root,"hls");
-       if(HlsObj == NULL) {
-            cJSON_AddItemToObject(root,"hls",HlsObj = cJSON_CreateObject());
-       }
-       HlsCount = cJSON_GetObjectItem(HlsObj,"hlscount");
-       if(HlsCount == NULL) {
-            cJSON_AddItemToObject(HlsObj,"hlscount",HlsCount = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(HlsCount, hls_count);
-       HlsMax = cJSON_GetObjectItem(HlsObj,"hlsmax");
-       if(HlsMax == NULL) {
-            cJSON_AddItemToObject(HlsObj,"hlsmax",HlsMax = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(HlsMax, hls_max);
-       /* rtsp */
-       RtspObj = cJSON_GetObjectItem(root,"rtsp");
-       if(RtspObj == NULL) {
-            cJSON_AddItemToObject(root,"rtsp",RtspObj = cJSON_CreateObject());
-       }
-       RtspCount = cJSON_GetObjectItem(RtspObj,"rtspcount");
-       if(RtspCount == NULL) {
-            cJSON_AddItemToObject(RtspObj,"rtspcount",RtspCount = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(RtspCount, rtsp_count);
-       RtspMax = cJSON_GetObjectItem(RtspObj,"rtspmax");
-       if(RtspMax == NULL) {
-            cJSON_AddItemToObject(RtspObj,"rtspmax",RtspMax = cJSON_CreateNumber(0));
-       }
-       cJSON_SetNumberValue(RtspMax, rtsp_max);
-       /* 2.get the system info:cpu,memory,disk,network */
-       /*cpu,memory*/
-       ngx_media_sys_stat_get_cpuinfo(&ullCpuPer);
-       ngx_media_sys_stat_get_memoryinfo(&ullMemtotal,&ullMemused);
+    /* 1.get the trans task ,rtmp,hls,rtsp info:total,capacity */
+    /* task */
+    taskObj = cJSON_GetObjectItem(root,"task");
+    if(taskObj == NULL) {
+        cJSON_AddItemToObject(root,"task",taskObj = cJSON_CreateObject());
+    }
+    taskCount = cJSON_GetObjectItem(taskObj,"taskcount");
+    if(taskCount == NULL) {
+        cJSON_AddItemToObject(taskObj,"taskcount",taskCount = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(taskCount, task_count);
+    taskMax = cJSON_GetObjectItem(taskObj,"taskmax");
+    if(taskMax == NULL) {
+        cJSON_AddItemToObject(taskObj,"taskmax",taskMax = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(taskMax, task_max);
+    /* rtmp */
+    RtmpObj = cJSON_GetObjectItem(root,"rtmp");
+    if(RtmpObj == NULL) {
+        cJSON_AddItemToObject(root,"rtmp",RtmpObj = cJSON_CreateObject());
+    }
+    RtmpCount = cJSON_GetObjectItem(RtmpObj,"rtmpcount");
+    if(RtmpCount == NULL) {
+        cJSON_AddItemToObject(RtmpObj,"rtmpcount",RtmpCount = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(RtmpCount, rtmp_count);
+    RtmpMax = cJSON_GetObjectItem(RtmpObj,"rtmpmax");
+    if(RtmpMax == NULL) {
+        cJSON_AddItemToObject(RtmpObj,"rtmpmax",RtmpMax = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(RtmpMax, rtmp_max);
+    /* hls */
+    HlsObj = cJSON_GetObjectItem(root,"hls");
+    if(HlsObj == NULL) {
+        cJSON_AddItemToObject(root,"hls",HlsObj = cJSON_CreateObject());
+    }
+    HlsCount = cJSON_GetObjectItem(HlsObj,"hlscount");
+    if(HlsCount == NULL) {
+        cJSON_AddItemToObject(HlsObj,"hlscount",HlsCount = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(HlsCount, hls_count);
+    HlsMax = cJSON_GetObjectItem(HlsObj,"hlsmax");
+    if(HlsMax == NULL) {
+        cJSON_AddItemToObject(HlsObj,"hlsmax",HlsMax = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(HlsMax, hls_max);
+    /* rtsp */
+    RtspObj = cJSON_GetObjectItem(root,"rtsp");
+    if(RtspObj == NULL) {
+        cJSON_AddItemToObject(root,"rtsp",RtspObj = cJSON_CreateObject());
+    }
+    RtspCount = cJSON_GetObjectItem(RtspObj,"rtspcount");
+    if(RtspCount == NULL) {
+        cJSON_AddItemToObject(RtspObj,"rtspcount",RtspCount = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(RtspCount, rtsp_count);
+    RtspMax = cJSON_GetObjectItem(RtspObj,"rtspmax");
+    if(RtspMax == NULL) {
+        cJSON_AddItemToObject(RtspObj,"rtspmax",RtspMax = cJSON_CreateNumber(0));
+    }
+    cJSON_SetNumberValue(RtspMax, rtsp_max);
+    /* 2.get the system info:cpu,memory,disk,network */
+    /*cpu,memory*/
+    ngx_media_sys_stat_get_cpuinfo(&ullCpuPer);
+    ngx_media_sys_stat_get_memoryinfo(&ullMemtotal,&ullMemused);
 
-       cpuObj = cJSON_GetObjectItem(root,"cpu");
+    cpuObj = cJSON_GetObjectItem(root,"cpu");
 
-       if(cpuObj == NULL)
-            cJSON_AddItemToObject(root,"cpu",cpuObj = cJSON_CreateNumber(0));
-       cJSON_SetNumberValue(cpuObj, ullCpuPer);
+    if(cpuObj == NULL)
+        cJSON_AddItemToObject(root,"cpu",cpuObj = cJSON_CreateNumber(0));
+    cJSON_SetNumberValue(cpuObj, ullCpuPer);
 
-       memObj = cJSON_GetObjectItem(root,"mem");
-       if(memObj == NULL)
-            cJSON_AddItemToObject(root,"mem",memObj = cJSON_CreateObject());
+    memObj = cJSON_GetObjectItem(root,"mem");
+    if(memObj == NULL)
+        cJSON_AddItemToObject(root,"mem",memObj = cJSON_CreateObject());
 
-       memUnitObj = cJSON_GetObjectItem(memObj,"uint");
-       if(memUnitObj == NULL)
-            cJSON_AddItemToObject(memObj,"uint",memUnitObj = cJSON_CreateString("MB"));
+    memUnitObj = cJSON_GetObjectItem(memObj,"uint");
+    if(memUnitObj == NULL)
+        cJSON_AddItemToObject(memObj,"uint",memUnitObj = cJSON_CreateString("MB"));
 
-       memTotalObj = cJSON_GetObjectItem(memObj,"total");
-       if(memTotalObj == NULL)
-            cJSON_AddItemToObject(memObj,"total",memTotalObj = cJSON_CreateNumber(0));
-       cJSON_SetNumberValue(memTotalObj, ullMemtotal);
+    memTotalObj = cJSON_GetObjectItem(memObj,"total");
+    if(memTotalObj == NULL)
+        cJSON_AddItemToObject(memObj,"total",memTotalObj = cJSON_CreateNumber(0));
+    cJSON_SetNumberValue(memTotalObj, ullMemtotal);
 
-       memUsedObj = cJSON_GetObjectItem(memObj,"used");
-       if(memUsedObj == NULL)
-            cJSON_AddItemToObject(memObj,"used",memUsedObj = cJSON_CreateNumber(0));
-       cJSON_SetNumberValue(memUsedObj, ullMemused);
+    memUsedObj = cJSON_GetObjectItem(memObj,"used");
+    if(memUsedObj == NULL)
+        cJSON_AddItemToObject(memObj,"used",memUsedObj = cJSON_CreateNumber(0));
+    cJSON_SetNumberValue(memUsedObj, ullMemused);
 
-       /*signal ip network*/
-       if(0 < conf->sys_conf.sch_signal_ip.len){
-            signalipObj = cJSON_GetObjectItem(root,"signalip");
-            last = ngx_cpymem(cbuf,conf->sys_conf.sch_signal_ip.data,conf->sys_conf.sch_signal_ip.len);
-            *last = '\0';
-            if(signalipObj == NULL){
-                cJSON_AddItemToObject(root,"signalip",signalipObj = cJSON_CreateObject());
-            }
-            ngx_media_sys_stat_get_networkcardinfo(cbuf,&ulTotalSize,&ulUsedRecvSize,&ulUsedSendSize);
+    /*signal ip network*/
+    if(0 < conf->sys_conf.sch_signal_ip.len){
+        signalipObj = cJSON_GetObjectItem(root,"signalip");
+        last = ngx_cpymem(cbuf,conf->sys_conf.sch_signal_ip.data,conf->sys_conf.sch_signal_ip.len);
+        *last = '\0';
+        if(signalipObj == NULL){
+            cJSON_AddItemToObject(root,"signalip",signalipObj = cJSON_CreateObject());
+        }
+        ngx_media_sys_stat_get_networkcardinfo(cbuf,&ulTotalSize,&ulUsedRecvSize,&ulUsedSendSize);
 
-            ipObj = cJSON_GetObjectItem(signalipObj,"ip");
-            if(ipObj == NULL){
-                cJSON_AddItemToObject(signalipObj,"ip",ipObj = cJSON_CreateString((char*)&cbuf[0]));
-            }
+        ipObj = cJSON_GetObjectItem(signalipObj,"ip");
+        if(ipObj == NULL){
+            cJSON_AddItemToObject(signalipObj,"ip",ipObj = cJSON_CreateString((char*)&cbuf[0]));
+        }
 
-            ipUnitObj = cJSON_GetObjectItem(signalipObj,"uint");
-            if(ipUnitObj == NULL){
-                cJSON_AddItemToObject(signalipObj,"uint",ipUnitObj = cJSON_CreateString("Mbps"));
-            }
+        ipUnitObj = cJSON_GetObjectItem(signalipObj,"uint");
+        if(ipUnitObj == NULL){
+            cJSON_AddItemToObject(signalipObj,"uint",ipUnitObj = cJSON_CreateString("Mbps"));
+        }
 
-            totalSize = cJSON_GetObjectItem(signalipObj,"total");
-            if(totalSize == NULL){
-                cJSON_AddItemToObject(signalipObj,"total",totalSize = cJSON_CreateNumber(0));
-            }
-            recvSize = cJSON_GetObjectItem(signalipObj,"recv");
-            if(recvSize == NULL){
-                cJSON_AddItemToObject(signalipObj,"recv",recvSize = cJSON_CreateNumber(0));
-            }
-            sendSize = cJSON_GetObjectItem(signalipObj,"send");
-            if(sendSize == NULL){
-                cJSON_AddItemToObject(signalipObj,"send",sendSize = cJSON_CreateNumber(0));
-            }
+        totalSize = cJSON_GetObjectItem(signalipObj,"total");
+        if(totalSize == NULL){
+            cJSON_AddItemToObject(signalipObj,"total",totalSize = cJSON_CreateNumber(0));
+        }
+        recvSize = cJSON_GetObjectItem(signalipObj,"recv");
+        if(recvSize == NULL){
+            cJSON_AddItemToObject(signalipObj,"recv",recvSize = cJSON_CreateNumber(0));
+        }
+        sendSize = cJSON_GetObjectItem(signalipObj,"send");
+        if(sendSize == NULL){
+            cJSON_AddItemToObject(signalipObj,"send",sendSize = cJSON_CreateNumber(0));
+        }
 
-            cJSON_SetNumberValue(totalSize, ulTotalSize);
-            cJSON_SetNumberValue(recvSize, ulUsedRecvSize);
-            cJSON_SetNumberValue(sendSize, ulUsedSendSize);
-
-       }
-
-       /*service ip network*/
-       if(0 < conf->sys_conf.sch_service_ip.len){
-            serviceipObj = cJSON_GetObjectItem(root,"serviceip");
-            last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.data,conf->sys_conf.sch_service_ip.len);
-            *last = '\0';
-            if(serviceipObj == NULL){
-                cJSON_AddItemToObject(root,"serviceip",serviceipObj = cJSON_CreateObject());
-            }
-            ngx_media_sys_stat_get_networkcardinfo(cbuf,&ulTotalSize,&ulUsedRecvSize,&ulUsedSendSize);
-
-            ipObj = cJSON_GetObjectItem(serviceipObj,"ip");
-            if(ipObj == NULL){
-                cJSON_AddItemToObject(serviceipObj,"ip",ipObj = cJSON_CreateString((char*)&cbuf[0]));
-            }
-            ipUnitObj = cJSON_GetObjectItem(serviceipObj,"uint");
-            if(ipUnitObj == NULL){
-                cJSON_AddItemToObject(serviceipObj,"uint",ipUnitObj = cJSON_CreateString("Mbps"));
-            }
-            totalSize = cJSON_GetObjectItem(serviceipObj,"total");
-            if(totalSize == NULL){
-                cJSON_AddItemToObject(serviceipObj,"total",totalSize = cJSON_CreateNumber(0));
-            }
-            recvSize = cJSON_GetObjectItem(serviceipObj,"recv");
-            if(recvSize == NULL){
-                cJSON_AddItemToObject(serviceipObj,"recv",recvSize = cJSON_CreateNumber(0));
-            }
-            sendSize = cJSON_GetObjectItem(serviceipObj,"send");
-            if(sendSize == NULL){
-                cJSON_AddItemToObject(serviceipObj,"send",sendSize = cJSON_CreateNumber(0));
-            }
-
-            cJSON_SetNumberValue(totalSize, ulTotalSize);
-            cJSON_SetNumberValue(recvSize, ulUsedRecvSize);
-            cJSON_SetNumberValue(sendSize, ulUsedSendSize);
-
-       }
-
-       /*disk stat info*/
-       if(0 < conf->sys_conf.sch_disk_vpath->nelts) {
-            diskList = cJSON_GetObjectItem(root,"diskinfolist");
-            if(diskList == NULL){
-                cJSON_AddItemToObject(root,"diskinfolist",diskList = cJSON_CreateArray());
-            }
-            kv_diskInfo = conf->sys_conf.sch_disk_vpath->elts;
-            for(i = 0;i < conf->sys_conf.sch_disk_vpath->nelts;i++) {
-                last = ngx_cpymem(cbuf,kv_diskInfo[i].value.data,kv_diskInfo[i].value.len);
-                *last = '\0';
-                ngx_media_sys_stat_get_diskinfo(cbuf,&ulTotalSize,&ulUsedRecvSize);
-                diskObj = cJSON_GetArrayItem(diskList,i);
-                if(diskObj == NULL) {
-                    cJSON_AddItemToObject(diskList,"diskinfo",diskObj = cJSON_CreateObject());
-                }
-
-                vpath = cJSON_GetObjectItem(diskObj,"vptah");
-                last = ngx_cpymem(cbuf,kv_diskInfo[i].key.data,kv_diskInfo[i].key.len);
-                *last = '\0';
-                if(vpath == NULL) {
-                    cJSON_AddItemToObject(diskObj,"vptah",vpath = cJSON_CreateString((char*)&cbuf[0]));
-                }
-                path = cJSON_GetObjectItem(diskObj,"path");
-                last = ngx_cpymem(cbuf,kv_diskInfo[i].value.data,kv_diskInfo[i].value.len);
-                *last = '\0';
-                if(path == NULL) {
-                    cJSON_AddItemToObject(diskObj,"path",vpath = cJSON_CreateString((char*)&cbuf[0]));
-                }
-
-
-                diskUnitObj = cJSON_GetObjectItem(diskObj,"uint");
-                if(diskUnitObj == NULL)
-                    cJSON_AddItemToObject(diskObj,"uint",diskUnitObj = cJSON_CreateString("MB"));
-
-                diskSize = cJSON_GetObjectItem(diskObj,"diskSize");
-                if(diskSize == NULL) {
-                    cJSON_AddItemToObject(diskObj,"diskSize",vpath = cJSON_CreateNumber(0));
-                }
-
-                usedSize = cJSON_GetObjectItem(diskObj,"usedSize");
-                if(usedSize == NULL) {
-                    cJSON_AddItemToObject(diskObj,"usedSize",usedSize = cJSON_CreateNumber(0));
-                }
-
-                cJSON_SetNumberValue(diskSize, ulTotalSize);
-                cJSON_SetNumberValue(usedSize, ulUsedRecvSize);
-            }
-       }
-
-       /* 3.build the json infomation and update the zookeeper node */
-
-       char * json_buf = cJSON_PrintUnformatted(root);
-
-       ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_update_stat:value:[%s].",json_buf);
-
-       zoo_aset(conf->sch_zk_handle,conf->sys_conf.str_zk_path,json_buf,ngx_strlen(json_buf),-1,ngx_media_system_zk_stat_completion_t,conf);
-
-       free(json_buf);
-
-       cJSON_Delete(root);
+        cJSON_SetNumberValue(totalSize, ulTotalSize);
+        cJSON_SetNumberValue(recvSize, ulUsedRecvSize);
+        cJSON_SetNumberValue(sendSize, ulUsedSendSize);
 
     }
-    else {
-        zookeeper_close(conf->sch_zk_handle);
-        conf->sch_zk_handle = NULL;
-        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "zookeeper error info:%s", zerror(rc));
+
+    /*service ip network*/
+    if(0 < conf->sys_conf.sch_service_ip.len){
+        serviceipObj = cJSON_GetObjectItem(root,"serviceip");
+        last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.data,conf->sys_conf.sch_service_ip.len);
+        *last = '\0';
+        if(serviceipObj == NULL){
+            cJSON_AddItemToObject(root,"serviceip",serviceipObj = cJSON_CreateObject());
+        }
+        ngx_media_sys_stat_get_networkcardinfo(cbuf,&ulTotalSize,&ulUsedRecvSize,&ulUsedSendSize);
+
+        ipObj = cJSON_GetObjectItem(serviceipObj,"ip");
+        if(ipObj == NULL){
+            cJSON_AddItemToObject(serviceipObj,"ip",ipObj = cJSON_CreateString((char*)&cbuf[0]));
+        }
+        ipUnitObj = cJSON_GetObjectItem(serviceipObj,"uint");
+        if(ipUnitObj == NULL){
+            cJSON_AddItemToObject(serviceipObj,"uint",ipUnitObj = cJSON_CreateString("Mbps"));
+        }
+        totalSize = cJSON_GetObjectItem(serviceipObj,"total");
+        if(totalSize == NULL){
+            cJSON_AddItemToObject(serviceipObj,"total",totalSize = cJSON_CreateNumber(0));
+        }
+        recvSize = cJSON_GetObjectItem(serviceipObj,"recv");
+        if(recvSize == NULL){
+            cJSON_AddItemToObject(serviceipObj,"recv",recvSize = cJSON_CreateNumber(0));
+        }
+        sendSize = cJSON_GetObjectItem(serviceipObj,"send");
+        if(sendSize == NULL){
+            cJSON_AddItemToObject(serviceipObj,"send",sendSize = cJSON_CreateNumber(0));
+        }
+
+        cJSON_SetNumberValue(totalSize, ulTotalSize);
+        cJSON_SetNumberValue(recvSize, ulUsedRecvSize);
+        cJSON_SetNumberValue(sendSize, ulUsedSendSize);
+
     }
+
+    /*disk stat info*/
+    if(0 < conf->sys_conf.sch_disk_vpath->nelts) {
+        diskList = cJSON_GetObjectItem(root,"diskinfolist");
+        if(diskList == NULL){
+            cJSON_AddItemToObject(root,"diskinfolist",diskList = cJSON_CreateArray());
+        }
+        kv_diskInfo = conf->sys_conf.sch_disk_vpath->elts;
+        for(i = 0;i < conf->sys_conf.sch_disk_vpath->nelts;i++) {
+            last = ngx_cpymem(cbuf,kv_diskInfo[i].value.data,kv_diskInfo[i].value.len);
+            *last = '\0';
+            ngx_media_sys_stat_get_diskinfo(cbuf,&ulTotalSize,&ulUsedRecvSize);
+            diskObj = cJSON_GetArrayItem(diskList,i);
+            if(diskObj == NULL) {
+                cJSON_AddItemToObject(diskList,"diskinfo",diskObj = cJSON_CreateObject());
+            }
+
+            vpath = cJSON_GetObjectItem(diskObj,"vptah");
+            last = ngx_cpymem(cbuf,kv_diskInfo[i].key.data,kv_diskInfo[i].key.len);
+            *last = '\0';
+            if(vpath == NULL) {
+                cJSON_AddItemToObject(diskObj,"vptah",vpath = cJSON_CreateString((char*)&cbuf[0]));
+            }
+            path = cJSON_GetObjectItem(diskObj,"path");
+            last = ngx_cpymem(cbuf,kv_diskInfo[i].value.data,kv_diskInfo[i].value.len);
+            *last = '\0';
+            if(path == NULL) {
+                cJSON_AddItemToObject(diskObj,"path",vpath = cJSON_CreateString((char*)&cbuf[0]));
+            }
+
+
+            diskUnitObj = cJSON_GetObjectItem(diskObj,"uint");
+            if(diskUnitObj == NULL)
+                cJSON_AddItemToObject(diskObj,"uint",diskUnitObj = cJSON_CreateString("MB"));
+
+            diskSize = cJSON_GetObjectItem(diskObj,"diskSize");
+            if(diskSize == NULL) {
+                cJSON_AddItemToObject(diskObj,"diskSize",vpath = cJSON_CreateNumber(0));
+            }
+
+            usedSize = cJSON_GetObjectItem(diskObj,"usedSize");
+            if(usedSize == NULL) {
+                cJSON_AddItemToObject(diskObj,"usedSize",usedSize = cJSON_CreateNumber(0));
+            }
+
+            cJSON_SetNumberValue(diskSize, ulTotalSize);
+            cJSON_SetNumberValue(usedSize, ulUsedRecvSize);
+        }
+    }
+
+    /* 3.build the json infomation and update the zookeeper node */
+
+    char * json_buf = cJSON_PrintUnformatted(root);
+
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_update_stat:value:[%s].",json_buf);
+
+    zoo_aset(conf->sch_zk_handle,zk_path,json_buf,ngx_strlen(json_buf),-1,ngx_media_system_zk_stat_completion_t,conf);
+
+    free(json_buf);
+
+    cJSON_Delete(root);
 }
 
 static void
@@ -799,7 +1225,7 @@ ngx_media_system_zk_stat_completion_t(int rc, const struct Stat *stat,const void
     }
 }
 static void
-ngx_media_system_zk_invoke_stat(ngx_media_system_main_conf_t* conf)
+ngx_media_system_zk_invoke_stat(ngx_media_system_main_conf_t* conf,ngx_uint_t flag)
 {
     int rc;
 
@@ -810,37 +1236,42 @@ ngx_media_system_zk_invoke_stat(ngx_media_system_main_conf_t* conf)
         return;
     }
 
-    if(zoo_state(conf->sch_zk_handle) == ZOO_CONNECTED_STATE) {
-        rc = zoo_aget(conf->sch_zk_handle,conf->sys_conf.str_zk_path, 0,
-                        ngx_media_system_zk_update_stat_completion_t, conf);
+    if(zoo_state(conf->sch_zk_handle) != ZOO_CONNECTED_STATE) {
+        return;
+    }
+    if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
+       &&(NULL != conf->sys_conf.str_zk_trans_path)){
+        rc = zoo_aget(conf->sch_zk_handle,conf->sys_conf.str_zk_trans_path, 0,
+                        ngx_media_system_zk_transcode_get_completion_t, conf);
         if(rc != ZOK) {
             zookeeper_close(conf->sch_zk_handle);
             conf->sch_zk_handle = NULL;
-            ngx_log_error(NGX_LOG_ERR, conf->log, 0, "get zk path is failed, %s,error info:%s",conf->sys_conf.str_zk_path,zerror(rc));
+            ngx_log_error(NGX_LOG_ERR, conf->log, 0, "get transcode path is failed, %s,error info:%s",conf->sys_conf.str_zk_trans_path,zerror(rc));
+            return;
         }
     }
-}
-
-static void
-ngx_media_system_zk_node_create_completion_t(int rc, const char *value, const void *data)
-{
-    ngx_media_system_main_conf_t* conf
-              = (ngx_media_system_main_conf_t *)data;
-
-
-    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_node_create_completion_t: ret:[%d]!",rc);
-
-    if (ZOK != rc) {
-        ngx_log_error(NGX_LOG_ERR, conf->log, 0, "Fail to create zookeeper node");
-        zookeeper_close(conf->sch_zk_handle);
-        conf->sch_zk_handle = NULL;
+    if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
+       &&(NULL != conf->sys_conf.str_zk_access_path)){
+        rc = zoo_aget(conf->sch_zk_handle,conf->sys_conf.str_zk_access_path, 0,
+                        ngx_media_system_zk_access_get_completion_t, conf);
+        if(rc != ZOK) {
+            zookeeper_close(conf->sch_zk_handle);
+            conf->sch_zk_handle = NULL;
+            ngx_log_error(NGX_LOG_ERR, conf->log, 0, "get access path is failed, %s,error info:%s",conf->sys_conf.str_zk_access_path,zerror(rc));
+            return;
+        }
     }
-    else {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
-        /* try update the service stat info */
-        ngx_media_system_zk_invoke_stat(conf);
+    if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
+       &&(NULL != conf->sys_conf.str_zk_stream_path)){
+        rc = zoo_aget(conf->sch_zk_handle,conf->sys_conf.str_zk_stream_path, 0,
+                        ngx_media_system_zk_stream_get_completion_t, conf);
+        if(rc != ZOK) {
+            zookeeper_close(conf->sch_zk_handle);
+            conf->sch_zk_handle = NULL;
+            ngx_log_error(NGX_LOG_ERR, conf->log, 0, "get stream path is failed, %s,error info:%s",conf->sys_conf.str_zk_stream_path,zerror(rc));
+            return;
+        }
     }
-
 }
 
 
