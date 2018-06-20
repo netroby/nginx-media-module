@@ -231,7 +231,7 @@ ngx_media_license_check(ngx_cycle_t *cycle,u_char* hash,ngx_array_t* maclist,
     ngx_memzero(szCode, LICENSE_HASH_CODE_LEN);
 
     /* add ability and confuse code */
-    last = ngx_snprintf(szKey,LICENSE_HASH_KEY_MAX,"%d:%d:%d:%d:%s",
+    last = ngx_snprintf(szKey,LICENSE_HASH_KEY_MAX,"%uD:%uD:%uD:%uD:%s",
                                                  task_count,rtmp_channel,rtsp_channel,hls_channel,
                                                  LICENSE_CONFUSE_CODE);
 
@@ -241,10 +241,13 @@ ngx_media_license_check(ngx_cycle_t *cycle,u_char* hash,ngx_array_t* maclist,
         mac = maclist->elts;
         for(i = 0;i < maclist->nelts;i++) {
             last = ngx_snprintf(last,LICENSE_HOST_MAC_LEN,":%V",&mac[i]);
+            ngx_log_error(NGX_LOG_DEBUG, cycle->log, 0,"check the license,mac:[%V].",&mac[i]);
         }
     }
     *last = '\0';
-
+#if (NGX_DEBUG)
+     ngx_log_error(NGX_LOG_DEBUG, cycle->log, 0,"ngx md5 update key:[%s].",szKey);
+#endif
     ngx_md5_init(&md5);
     ngx_md5_update(&md5, szKey, ngx_strlen(szKey));
     ngx_md5_final(szCode, &md5);
@@ -259,7 +262,7 @@ ngx_media_license_check(ngx_cycle_t *cycle,u_char* hash,ngx_array_t* maclist,
         ngx_log_error(NGX_LOG_DEBUG, cycle->log, 0,"check the license success.");
         return NGX_OK;
     }
-    ngx_log_error(NGX_LOG_WARN, cycle->log, 0,"check the license fail,%s.",szKey);
+    ngx_log_error(NGX_LOG_WARN, cycle->log, 0,"check the license fail,key:[%s].hash:[%s].",szKey,hash);
     //ngx_log_error(NGX_LOG_WARN, cycle->log, 0,"check the license fail.");
     return NGX_ERROR;
 }
@@ -283,7 +286,6 @@ ngx_media_license_init(ngx_cycle_t *cycle,ngx_media_license_info_t* license)
     ngx_uint_t                     rtmp_channel = LICENSE_RTMP_CHANNEL_DEFAULT;
     ngx_uint_t                     rtsp_channel = LICENSE_RTSP_CHANNEL_DEFAULT;
     ngx_uint_t                     hls_channel  = LICENSE_HLS_CHANNEL_DEFAULT;
-    ngx_uint_t                     count = 0;
     u_char                         licfile[LICENSE_FILE_PATH_LEN];
 
     ngx_memzero(licfile, LICENSE_FILE_PATH_LEN);
@@ -372,35 +374,19 @@ ngx_media_license_init(ngx_cycle_t *cycle,ngx_media_license_info_t* license)
         else if (!xmlStrcmp(curNode->name, BAD_CAST "ability"))  {
             attr_value = xmlGetProp(curNode,BAD_CAST "rtmp");
             if(NULL != attr_value) {
-                count = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
-                if(count > rtmp_channel)
-                {
-                    rtmp_channel = count;
-                }
+                rtmp_channel = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
             }
             attr_value = xmlGetProp(curNode,BAD_CAST "rtsp");
             if(NULL != attr_value) {
-                count = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
-                if(count > rtsp_channel)
-                {
-                    rtsp_channel = count;
-                }
+                rtsp_channel = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
             }
             attr_value = xmlGetProp(curNode,BAD_CAST "hls");
             if(NULL != attr_value) {
-                count = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
-                if(count > hls_channel)
-                {
-                    hls_channel = count;
-                }
+                hls_channel = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
             }
             attr_value = xmlGetProp(curNode,BAD_CAST "task");
             if(NULL != attr_value) {
-                count = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
-                if(count > task_count)
-                {
-                    task_count = count;
-                }
+                task_count = ngx_atoi((u_char*)attr_value,ngx_strlen(attr_value));
             }
         }
         else if (!xmlStrcmp(curNode->name, BAD_CAST "hash"))  {
