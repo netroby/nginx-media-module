@@ -41,10 +41,9 @@ typedef struct {
     char                           *str_zk_access_path;
     char                           *str_zk_stream_path;
     ngx_msec_t                      sch_zk_update;
-    ngx_str_t                       sch_signal_ip;
-    ngx_str_t                       sch_service_ip;
+    ngx_keyval_t                    sch_signal_ip;
+    ngx_keyval_t                    sch_service_ip;
     ngx_array_t                    *sch_disk_vpath;
-
 }ngx_media_system_conf_t;
 
 
@@ -62,6 +61,8 @@ static ngx_media_system_conf_t* g_VideoSysConf = NULL;
 
 
 static char*     ngx_media_system_init(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char*     ngx_media_system_signal_address(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char*     ngx_media_system_service_address(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_media_system_init_process(ngx_cycle_t *cycle);
 static void      ngx_media_system_exit_process(ngx_cycle_t *cycle);
 static void*     ngx_media_system_create_main_conf(ngx_conf_t *cf);
@@ -153,15 +154,15 @@ static ngx_command_t  ngx_media_system_commands[] = {
       NULL },
 
     { ngx_string(NGX_HTTP_SCH_ZK_SIGIP),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+      ngx_media_system_signal_address,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_media_system_main_conf_t, sys_conf.sch_signal_ip),
       NULL },
 
     { ngx_string(NGX_HTTP_SCH_ZK_SERIP),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+      ngx_media_system_service_address,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_media_system_main_conf_t, sys_conf.sch_service_ip),
       NULL },
@@ -259,8 +260,10 @@ ngx_media_system_create_main_conf(ngx_conf_t *cf)
 
     ngx_str_null(&mconf->sys_conf.sch_zk_address);
     ngx_str_null(&mconf->sys_conf.sch_zk_server_id);
-    ngx_str_null(&mconf->sys_conf.sch_signal_ip);
-    ngx_str_null(&mconf->sys_conf.sch_service_ip);
+    ngx_str_null(&mconf->sys_conf.sch_signal_ip.key);
+    ngx_str_null(&mconf->sys_conf.sch_signal_ip.value);
+    ngx_str_null(&mconf->sys_conf.sch_service_ip.key);
+    ngx_str_null(&mconf->sys_conf.sch_service_ip.value);
     mconf->sys_conf.sch_disk_vpath = ngx_array_create(cf->pool, TRANS_VPATH_KV_MAX,
                                                 sizeof(ngx_keyval_t));
     if (mconf->sys_conf.sch_disk_vpath == NULL) {
@@ -290,8 +293,68 @@ ngx_media_system_init(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     return NGX_CONF_OK;
 }
+static char*
+ngx_media_system_signal_address(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_str_t                    *value;
+    ngx_uint_t                    n;
+    ngx_media_system_main_conf_t *sysconf   = NULL;
+    sysconf = (ngx_media_system_main_conf_t *)ngx_http_conf_get_module_main_conf(cf, ngx_media_system_module);
+    if(NULL == sysconf) {
+        return NGX_CONF_ERROR;
+    }
+    value = cf->args->elts;
+    n     = cf->args->nelts;
 
+    if((2 != n)&&(4 !=n)) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                    "system service address conf count:[%uD] error.",n);
+        return NGX_CONF_ERROR;
+    }
+    sysconf->sys_conf.sch_signal_ip.key = value[1];
+    if(2 == n) {
+        return NGX_CONF_OK;
+    }
 
+    if (ngx_strncmp(value[2].data, (u_char *) "net", 3) != 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                    "system service address conf count:[%uD] is not net configure.",n);
+        return NGX_CONF_ERROR;
+    }
+    sysconf->sys_conf.sch_signal_ip.value= value[3];
+    return NGX_CONF_OK;
+}
+static char*
+ngx_media_system_service_address(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_str_t                    *value;
+    ngx_uint_t                    n;
+    ngx_media_system_main_conf_t *sysconf   = NULL;
+    sysconf = (ngx_media_system_main_conf_t *)ngx_http_conf_get_module_main_conf(cf, ngx_media_system_module);
+    if(NULL == sysconf) {
+        return NGX_CONF_ERROR;
+    }
+    value = cf->args->elts;
+    n     = cf->args->nelts;
+
+    if((2 != n)&&(4 !=n)) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                    "system service address conf count:[%uD] error.",n);
+        return NGX_CONF_ERROR;
+    }
+    sysconf->sys_conf.sch_service_ip.key = value[1];
+    if(2 == n) {
+        return NGX_CONF_OK;
+    }
+
+    if (ngx_strncmp(value[2].data, (u_char *) "net", 3) != 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                    "system service address conf count:[%uD] is not net configure.",n);
+        return NGX_CONF_ERROR;
+    }
+    sysconf->sys_conf.sch_service_ip.value= value[3];
+    return NGX_CONF_OK;
+}
 static ngx_int_t
 ngx_media_system_init_process(ngx_cycle_t *cycle)
 {
@@ -321,16 +384,16 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
 
     /* add the system stat info */
     /* add the stat network card info to stat */
-    if(0 < mainconf->sys_conf.sch_signal_ip.len) {
-        last = ngx_cpymem(cbuf,mainconf->sys_conf.sch_signal_ip.data,mainconf->sys_conf.sch_signal_ip.len);
+    if(0 < mainconf->sys_conf.sch_signal_ip.key.len) {
+        last = ngx_cpymem(cbuf,mainconf->sys_conf.sch_signal_ip.key.data,mainconf->sys_conf.sch_signal_ip.key.len);
         *last = '\0';
         if(NGX_OK != ngx_media_sys_stat_add_networdcard(cbuf)){
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: add the signal network card:[%s] fail.",cbuf);
             return NGX_OK;
         }
     }
-    if(0 < mainconf->sys_conf.sch_service_ip.len) {
-        last = ngx_cpymem(cbuf,mainconf->sys_conf.sch_service_ip.data,mainconf->sys_conf.sch_service_ip.len);
+    if(0 < mainconf->sys_conf.sch_service_ip.key.len) {
+        last = ngx_cpymem(cbuf,mainconf->sys_conf.sch_service_ip.key.data,mainconf->sys_conf.sch_service_ip.key.len);
         *last = '\0';
         if(NGX_OK != ngx_media_sys_stat_add_networdcard(cbuf)){
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: add the service network card:[%s] fail.",cbuf);
@@ -365,7 +428,7 @@ ngx_media_system_init_process(ngx_cycle_t *cycle)
         return NGX_OK;
     }
 
-    if( (NULL == mainconf->sys_conf.sch_signal_ip.data) || (0 == mainconf->sys_conf.sch_signal_ip.len)) {
+    if( (NULL == mainconf->sys_conf.sch_signal_ip.key.data) || (0 == mainconf->sys_conf.sch_signal_ip.key.len)) {
         ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "ngx_media_system_module: NO control IP address,so no need register");
         return NGX_OK;
     }
@@ -1074,14 +1137,20 @@ ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const c
     cJSON_SetNumberValue(memUsedObj, ullMemused);
 
     /*signal ip network*/
-    if(0 < conf->sys_conf.sch_signal_ip.len){
+    if(0 < conf->sys_conf.sch_signal_ip.key.len){
         signalipObj = cJSON_GetObjectItem(root,"signalip");
-        last = ngx_cpymem(cbuf,conf->sys_conf.sch_signal_ip.data,conf->sys_conf.sch_signal_ip.len);
+        last = ngx_cpymem(cbuf,conf->sys_conf.sch_signal_ip.key.data,conf->sys_conf.sch_signal_ip.key.len);
         *last = '\0';
         if(signalipObj == NULL){
             cJSON_AddItemToObject(root,"signalip",signalipObj = cJSON_CreateObject());
         }
         ngx_media_sys_stat_get_networkcardinfo(cbuf,&ulTotalSize,&ulUsedRecvSize,&ulUsedSendSize);
+
+        if((NULL != conf->sys_conf.sch_signal_ip.value.data)&&(0 < conf->sys_conf.sch_signal_ip.value.len)) {
+            /* set the firewall address */
+            last = ngx_cpymem(cbuf,conf->sys_conf.sch_signal_ip.value.data,conf->sys_conf.sch_signal_ip.value.len);
+            *last = '\0';
+        }
 
         ipObj = cJSON_GetObjectItem(signalipObj,"ip");
         if(ipObj == NULL){
@@ -1113,14 +1182,20 @@ ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const c
     }
 
     /*service ip network*/
-    if(0 < conf->sys_conf.sch_service_ip.len){
+    if(0 < conf->sys_conf.sch_service_ip.key.len){
         serviceipObj = cJSON_GetObjectItem(root,"serviceip");
-        last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.data,conf->sys_conf.sch_service_ip.len);
+        last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.key.data,conf->sys_conf.sch_service_ip.key.len);
         *last = '\0';
         if(serviceipObj == NULL){
             cJSON_AddItemToObject(root,"serviceip",serviceipObj = cJSON_CreateObject());
         }
         ngx_media_sys_stat_get_networkcardinfo(cbuf,&ulTotalSize,&ulUsedRecvSize,&ulUsedSendSize);
+
+        if((NULL != conf->sys_conf.sch_service_ip.value.data)&&(0 < conf->sys_conf.sch_service_ip.value.len)) {
+            /* set the firewall address */
+            last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.value.data,conf->sys_conf.sch_service_ip.value.len);
+            *last = '\0';
+        }
 
         ipObj = cJSON_GetObjectItem(serviceipObj,"ip");
         if(ipObj == NULL){
