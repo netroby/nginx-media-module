@@ -579,7 +579,9 @@ ngx_media_system_zk_root_create_completion_t(int rc, const char *value, const vo
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_root_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK == rc || ZNODEEXISTS == rc) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        if(NULL != value) {
+            ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper root node:%s",value);
+        }
         ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper allmedia path success,so check the child path.");
         // check transcode
         if(NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE)) {
@@ -656,7 +658,9 @@ ngx_media_system_zk_transcode_create_completion_t(int rc, const char *value, con
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_transcode_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK == rc || ZNODEEXISTS == rc) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        if(NULL != value) {
+            ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper transcode:%s",value);
+        }
         ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper transcode path success,so create the child path.");
         // check transcode
         if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
@@ -687,7 +691,9 @@ ngx_media_system_zk_transcode_node_create_completion_t(int rc, const char *value
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_transcode_node_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK == rc || ZNODEEXISTS == rc) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        if(NULL != value) {
+            ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper tranacode node:%s",value);
+        }
         /* try update the service stat info */
         ngx_media_system_zk_invoke_stat(conf,NGX_ALLMEDIA_TYPE_TRANSCODE);
     }
@@ -761,7 +767,9 @@ ngx_media_system_zk_access_create_completion_t(int rc, const char *value, const 
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_access_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK == rc || ZNODEEXISTS == rc) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        if(NULL != value) {
+            ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper access :%s",value);
+        }
         ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper access path success,so create the child path.");
         // check transcode
         if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
@@ -791,7 +799,9 @@ ngx_media_system_zk_access_node_create_completion_t(int rc, const char *value, c
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_access_node_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK == rc || ZNODEEXISTS == rc) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        if(NULL != value) {
+            ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper access node:%s",value);
+        }
         /* try update the service stat info */
         ngx_media_system_zk_invoke_stat(conf,NGX_ALLMEDIA_TYPE_ACCESS);
 
@@ -864,7 +874,9 @@ ngx_media_system_zk_stream_create_completion_t(int rc, const char *value, const 
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_stream_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK == rc || ZNODEEXISTS == rc) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        if(NULL != value) {
+            ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper stream:%s",value);
+        }
         ngx_log_error(NGX_LOG_INFO, conf->log, 0,"create the zookeeper stream path success,so create the child path.");
         // check transcode
         if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
@@ -896,7 +908,9 @@ ngx_media_system_zk_stream_node_create_completion_t(int rc, const char *value, c
     ngx_log_error(NGX_LOG_DEBUG, conf->log, 0, "ngx_media_system_zk_stream_node_create_completion_t: ret:[%d]!",rc);
 
     if (ZOK == rc || ZNODEEXISTS == rc) {
-        ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper node:%s",value);
+        if(NULL != value) {
+            ngx_log_error(NGX_LOG_INFO, conf->log, 0, "create zookeeper stream node:%s",value);
+        }
         /* try update the service stat info */
         ngx_media_system_zk_invoke_stat(conf,NGX_ALLMEDIA_TYPE_STREAM);
     }
