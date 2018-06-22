@@ -1048,22 +1048,26 @@ ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_w
         name = xmlGetProp(paramNode,BAD_CAST COMMON_XML_NAME);
         if(NULL != name) {
             size_t lens = ngx_strlen(name);
-            param = ngx_pcalloc(worker->pool,lens+2);
-            param[0] = '-';
-            last =ngx_copy(&param[1],(u_char*)name,lens);
-            worker->paramlist[worker->nparamcount] = param;
-            worker->nparamcount++;
-
-            value = xmlGetProp(paramNode,BAD_CAST COMMON_XML_VALUE);
-            if(NULL != value) {
-                lens  = ngx_strlen(value);
-                param = ngx_pcalloc(worker->pool,lens+1);
-                last =ngx_copy(param,(u_char*)value,lens);
-                *last = '\0';
+            if(0 < lens) {
+                param = ngx_pcalloc(worker->pool,lens+2);
+                param[0] = '-';
+                last =ngx_copy(&param[1],(u_char*)name,lens);
                 worker->paramlist[worker->nparamcount] = param;
                 worker->nparamcount++;
-                ngx_media_task_push_args(task, (u_char*)name ,(u_char*)value);
-                xmlFree(value);
+
+                value = xmlGetProp(paramNode,BAD_CAST COMMON_XML_VALUE);
+                if(NULL != value) {
+                    lens  = ngx_strlen(value);
+                    if(0 < lens) {
+                        param = ngx_pcalloc(worker->pool,lens+1);
+                        last =ngx_copy(param,(u_char*)value,lens);
+                        *last = '\0';
+                        worker->paramlist[worker->nparamcount] = param;
+                        worker->nparamcount++;
+                        ngx_media_task_push_args(task, (u_char*)name ,(u_char*)value);
+                    }
+                    xmlFree(value);
+                }
             }
             xmlFree(name);
         }

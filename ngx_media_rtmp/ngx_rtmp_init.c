@@ -8,9 +8,6 @@
 #include <ngx_core.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_proxy_protocol.h"
-#include "ngx_media_license_module.h"
-
-static ngx_uint_t  ngx_rtmp_connect_count = 0;
 
 
 static void ngx_rtmp_close_connection(ngx_connection_t *c);
@@ -34,16 +31,6 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
 #endif
 
     ++ngx_rtmp_naccepted;
-
-    /* check the rtmp connect license */
-    ++ngx_rtmp_connect_count;
-    ngx_uint_t rtmp_license = ngx_media_license_rtmp_channle();
-    if(ngx_rtmp_connect_count > rtmp_license) {
-        ngx_log_error(NGX_LOG_WARN, c->log, 0, "the rtmp connected:[%d] is more than rtmp license[%d],so refuse.",
-                  ngx_rtmp_connect_count, rtmp_license);
-        ngx_rtmp_close_connection(c);
-        return;
-    }
 
     /* find the server configuration for the address:port */
 
@@ -272,8 +259,6 @@ ngx_rtmp_close_connection(ngx_connection_t *c)
 #if (NGX_STAT_STUB)
     (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
 #endif
-
-    --ngx_rtmp_connect_count;
 
     pool = c->pool;
     ngx_close_connection(c);

@@ -94,11 +94,16 @@ ngx_rtmp_limit_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_int_t                   rc;
 
     lmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_limit_module);
-    if (lmcf->max_conn == NGX_CONF_UNSET) {
+    if (NULL == lmcf) {
         return NGX_OK;
     }
 
     shm_zone = lmcf->shm_zone;
+    /* begin:add by H.Kernel for license control */
+    if (NULL == shm_zone) {
+        return NGX_OK;
+    }
+    /* end:add by H.Kernel for license control */
     shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
     nconn = shm_zone->data;
 
@@ -116,11 +121,14 @@ ngx_rtmp_limit_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "license: too many connections: %uD > %i",
-                      n, lmcf->max_conn);
+                      n, rtmp_max);
         return rc;
     }
     ngx_media_license_rtmp_count(n);
     /* end:add by H.Kernel for license control */
+    if (lmcf->max_conn == NGX_CONF_UNSET) {
+        return NGX_OK;
+    }
 
     rc = n > (ngx_uint_t) lmcf->max_conn ? NGX_ERROR : NGX_OK;
 
@@ -209,9 +217,11 @@ ngx_rtmp_limit_postconfiguration(ngx_conf_t *cf)
     *h = ngx_rtmp_limit_disconnect;
 
     lmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_limit_module);
-    if (lmcf->max_conn == NGX_CONF_UNSET) {
-        return NGX_OK;
-    }
+    /* begin:delete by H.Kernel for license control */
+    //if (lmcf->max_conn == NGX_CONF_UNSET) {
+    //    return NGX_OK;
+    //}
+    /* end:deleteby H.Kernel for license control */
 
     lmcf->shm_zone = ngx_shared_memory_add(cf, &shm_name, ngx_pagesize * 2,
                                            &ngx_rtmp_limit_module);

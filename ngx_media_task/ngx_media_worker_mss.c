@@ -13,6 +13,7 @@
 #define MSS_WORK_ARG_ENDTIME         "-mss_endtime"
 #define MSS_WORK_ARG_USERNAME        "-mss_username"
 #define MSS_WORK_ARG_PASSWORD        "-mss_password"
+#define MSS_WORK_ARG_AGENT_TYPE      "-mss_agenttype"
 
 
 
@@ -46,6 +47,7 @@ typedef struct {
     ngx_str_t                       mss_contentid;
     ngx_str_t                       mss_starttime;
     ngx_str_t                       mss_endtime;
+    ngx_str_t                       mss_agenttype;
     ngx_str_t                       mss_nvrcode;
 } ngx_worker_mss_arg_t;
 
@@ -134,6 +136,12 @@ ngx_media_worker_mss_args(ngx_worker_mss_ctx_t* mss_ctx,u_char* arg,u_char* valu
     }
     else if(ngx_strncmp(arg,MSS_WORK_ARG_PASSWORD,size) == 0) {
         ret = ngx_media_worker_arg_value_str(mss_ctx->pool,value,&mss_ctx->mss_arg.mss_passwd);
+        if(NGX_OK == ret) {
+            (*index)++;
+        }
+    }
+    else if(ngx_strncmp(arg,MSS_WORK_ARG_AGENT_TYPE,size) == 0) {
+        ret = ngx_media_worker_arg_value_str(mss_ctx->pool,value,&mss_ctx->mss_arg.mss_agenttype);
         if(NGX_OK == ret) {
             (*index)++;
         }
@@ -242,6 +250,9 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
         }
 
     }
+    else if(NGX_MEDIA_WOKER_MSS_STATUS_END == worker_ctx->status) {
+        worker_ctx->watcher(ngx_media_worker_status_end,error_code,worker_ctx->wk_ctx);
+    }
 
     if(NGX_MEDIA_WOKER_MSS_STATUS_MK_RUN < worker_ctx->status) {
         return;
@@ -331,21 +342,53 @@ ngx_media_worker_mss_create_req_msg(ngx_worker_mss_ctx_t *ctx)
     }
     do {
         if(MSS_MEDIA_TYE_LIVE == enMediaType) {
-            cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
-            cJSON_AddItemToObject(root, "streamType", cJSON_CreateString((char*)ctx->mss_arg.mss_streamtype.data));
+
+            if((NULL != ctx->mss_arg.mss_cameraid.data)&&(0 < ctx->mss_arg.mss_cameraid.len)) {
+                cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
+            }
+
+            if((NULL != ctx->mss_arg.mss_streamtype.data)&&(0 < ctx->mss_arg.mss_streamtype.len)) {
+                cJSON_AddItemToObject(root, "streamType", cJSON_CreateString((char*)ctx->mss_arg.mss_streamtype.data));
+            }
+
             cJSON_AddItemToObject(root, "urlType", cJSON_CreateString("1"));
+
+            if((NULL != ctx->mss_arg.mss_agenttype.data)&&(0 < ctx->mss_arg.mss_agenttype.len)) {
+                cJSON_AddItemToObject(root, "agentType", cJSON_CreateString((char*)ctx->mss_arg.mss_agenttype.data));
+            }
         }
         else if(MSS_MEDIA_TYE_RECORD == enMediaType) {
-            cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
-            cJSON_AddItemToObject(root, "streamType", cJSON_CreateString((char*)ctx->mss_arg.mss_streamtype.data));
+
+            if((NULL != ctx->mss_arg.mss_cameraid.data)&&(0 < ctx->mss_arg.mss_cameraid.len)) {
+                cJSON_AddItemToObject(root, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
+            }
+
+            if((NULL != ctx->mss_arg.mss_streamtype.data)&&(0 < ctx->mss_arg.mss_streamtype.len)) {
+                cJSON_AddItemToObject(root, "streamType", cJSON_CreateString((char*)ctx->mss_arg.mss_streamtype.data));
+            }
             cJSON_AddItemToObject(root, "urlType", cJSON_CreateString("1"));
             cJSON_AddItemToObject(root, "vodType", cJSON_CreateString("download"));
             cJSON* vodInfo = cJSON_CreateObject();
-            cJSON_AddItemToObject(vodInfo, "contentId", cJSON_CreateString((char*)ctx->mss_arg.mss_contentid.data));
-            cJSON_AddItemToObject(vodInfo, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
-            cJSON_AddItemToObject(vodInfo, "beginTime", cJSON_CreateString((char*)ctx->mss_arg.mss_starttime.data));
-            cJSON_AddItemToObject(vodInfo, "endTime", cJSON_CreateString((char*)ctx->mss_arg.mss_endtime.data));
-            cJSON_AddItemToObject(vodInfo, "nvrCode", cJSON_CreateString((char*)ctx->mss_arg.mss_nvrcode.data));
+
+            if((NULL != ctx->mss_arg.mss_contentid.data)&&(0 < ctx->mss_arg.mss_contentid.len)) {
+                cJSON_AddItemToObject(vodInfo, "contentId", cJSON_CreateString((char*)ctx->mss_arg.mss_contentid.data));
+            }
+
+            if((NULL != ctx->mss_arg.mss_cameraid.data)&&(0 < ctx->mss_arg.mss_cameraid.len)) {
+                cJSON_AddItemToObject(vodInfo, "cameraId", cJSON_CreateString((char*)ctx->mss_arg.mss_cameraid.data));
+            }
+
+            if((NULL != ctx->mss_arg.mss_starttime.data)&&(0 < ctx->mss_arg.mss_starttime.len)) {
+                cJSON_AddItemToObject(vodInfo, "beginTime", cJSON_CreateString((char*)ctx->mss_arg.mss_starttime.data));
+            }
+
+            if((NULL != ctx->mss_arg.mss_endtime.data)&&(0 < ctx->mss_arg.mss_endtime.len)) {
+               cJSON_AddItemToObject(vodInfo, "endTime", cJSON_CreateString((char*)ctx->mss_arg.mss_endtime.data));
+            }
+
+            if((NULL != ctx->mss_arg.mss_nvrcode.data)&&(0 < ctx->mss_arg.mss_nvrcode.len)) {
+               cJSON_AddItemToObject(vodInfo, "nvrCode", cJSON_CreateString((char*)ctx->mss_arg.mss_nvrcode.data));
+            }
             cJSON_AddItemToObject(root, "vodInfo",vodInfo);
         }
         char* msg = cJSON_PrintUnformatted(root);
