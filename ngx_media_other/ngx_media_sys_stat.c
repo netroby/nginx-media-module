@@ -1101,13 +1101,13 @@ ngx_media_sys_stat_stat_ethnetcardinfo(int32_t isock, NetworkCardInfo* pNetworkC
     pIfr->ifr_data = (char *) &stEcmd;
     if (NGX_OK != ioctl(isock, SIOCETHTOOL, pIfr))
     {
-        ngx_log_error(NGX_LOG_WARN, g_VideoSysStat->log, 0,"ioctl <SIOCETHTOOL> on %s failed.", pIfr->ifr_name);
+        ngx_log_error(NGX_LOG_INFO, g_VideoSysStat->log, 0,"ioctl <SIOCETHTOOL> on %s failed.", pIfr->ifr_name);
         pNetworkCard->m_ulBWTotal = NGX_BANDWIDTH_DEFAULT;
         return NGX_OK;
     }
     else if (ABNOMAL_VALUE == stEcmd.speed)
     {
-        ngx_log_error(NGX_LOG_WARN, g_VideoSysStat->log, 0,"The network is down.network name[%s]",pIfr->ifr_name);
+        ngx_log_error(NGX_LOG_INFO, g_VideoSysStat->log, 0,"The network is down.network name[%s]",pIfr->ifr_name);
         pNetworkCard->m_ulBWTotal = NGX_BANDWIDTH_DEFAULT;
         return NGX_OK;
     }
