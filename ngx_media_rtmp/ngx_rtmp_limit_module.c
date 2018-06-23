@@ -155,9 +155,17 @@ ngx_rtmp_limit_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     uint32_t                   *nconn, n;
 
     lmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_limit_module);
-    if (lmcf->max_conn == NGX_CONF_UNSET) {
+    /* begin:delete by H.Kernel for license control */
+    //if (lmcf->max_conn == NGX_CONF_UNSET) {
+    //    return NGX_OK;
+    //}
+    /* end:deleteby H.Kernel for license control */
+    /* begin:add by H.Kernel for license control */
+    if (NULL == lmcf) {
         return NGX_OK;
     }
+    /* end:add by H.Kernel for license control */
+    shpool = (ngx_slab_pool_t *) shm_zone->shm.add
 
     shm_zone = lmcf->shm_zone;
     shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
