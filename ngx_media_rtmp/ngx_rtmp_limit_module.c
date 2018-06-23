@@ -165,7 +165,6 @@ ngx_rtmp_limit_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_OK;
     }
     /* end:add by H.Kernel for license control */
-    shpool = (ngx_slab_pool_t *) shm_zone->shm.add
 
     shm_zone = lmcf->shm_zone;
     shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
