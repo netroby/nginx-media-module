@@ -173,8 +173,9 @@ ngx_rtmp_limit_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_shmtx_lock(&shpool->mutex);
     n = --*nconn;
     ngx_shmtx_unlock(&shpool->mutex);
-
-    (void) n;
+    /* begin:add by H.Kernel for license control */
+    ngx_media_license_rtmp_count(n);
+    /* end:add by H.Kernel for license control */
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "limit: dec conection counter: %uD", n);
 
