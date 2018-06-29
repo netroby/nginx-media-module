@@ -335,17 +335,20 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
     }
     /* init the media kernel log handle */
     if(NGX_CONF_UNSET == mainconf->task_mk_log) {
-        enLevel = MK_LOG_LEVEL_ERROR;
-    }
-    else if((MK_LOG_LEVEL_DEBUG <= mainconf->task_mk_log)
-        &&(MK_LOG_LEVEL_MAX > mainconf->task_mk_log)){
-        enLevel = mainconf->task_mk_log;
+        enLevel = AV_LOG_FATAL;
+        mk_log_init(NULL,enLevel,NULL);
     }
     else {
-        enLevel = MK_LOG_LEVEL_ERROR;
-    }
+        if((MK_LOG_LEVEL_DEBUG <= mainconf->task_mk_log)
+            &&(MK_LOG_LEVEL_MAX > mainconf->task_mk_log)){
+            enLevel = mainconf->task_mk_log;
+        }
+        else {
+            enLevel = MK_LOG_LEVEL_ERROR;
+        }
 
-    mk_log_init(ngx_media_task_mk_log_callback,enLevel,cycle->log);
+        mk_log_init(ngx_media_task_mk_log_callback,enLevel,cycle->log);
+    }
 
     /* init the media kernel libary */
     int ret = mk_lib_init(task_monitor);
