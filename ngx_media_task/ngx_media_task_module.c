@@ -361,11 +361,11 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
 
     /* execs are always started by the first worker */
     if (ngx_process_slot) {
-        ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "ngx_media_task_module,the process:[%d] is not 0,no need start static timer.",ngx_process_slot);
+        ngx_log_error(NGX_LOG_INFO, cycle->log, 0, "ngx_media_task_module,the process:[%d] is not 0,no need start static timer.",ngx_process_slot);
         return NGX_OK;
     }
 
-    ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "ngx_media_task_module,the process:[%d] is 0,so start static timer.",ngx_process_slot);
+    ngx_log_error(NGX_LOG_INFO, cycle->log, 0, "ngx_media_task_module,the process:[%d] is 0,so start static timer.",ngx_process_slot);
 
     ngx_media_task_static_init_timer(mainconf);
 
@@ -405,7 +405,7 @@ ngx_media_task_copy_global_args(ngx_media_main_conf_t *conf,ngx_media_task_t *ta
         task_kv->value.len  = kv[i].value.len;
         last = ngx_cpymem(task_kv->value.data,kv[i].value.data,kv[i].value.len);
         *last = '\0';
-        ngx_log_error(NGX_LOG_DEBUG, task->log,0, "copy the global arg,key:[%V] value:[%V]",
+        ngx_log_error(NGX_LOG_INFO, task->log,0, "copy the global arg,key:[%V] value:[%V]",
                                          &kv[i].key,&kv[i].value);
     }
     return;
@@ -435,7 +435,7 @@ ngx_media_task_push_args(ngx_media_task_t *task,u_char* key,u_char* value)
     last = ngx_cpymem(kv->value.data,value,size);
     *last = '\0';
 
-    ngx_log_error(NGX_LOG_DEBUG, task->log,0, "push the arg,key:[%V] value:[%V]",
+    ngx_log_error(NGX_LOG_INFO, task->log,0, "push the arg,key:[%V] value:[%V]",
                                          &kv->key,&kv->value);
 }
 
@@ -500,7 +500,7 @@ ngx_media_task_create_task(ngx_media_main_conf_t *conf)
 
     ngx_add_timer(&task->time_event, TASK_CHECK_INTERVAL);
 
-    ngx_log_debug1(NGX_LOG_DEBUG_CORE, task->log, 0,
+    ngx_log_error(NGX_LOG_INFO, task->log, 0,
                           "ngx http video task create the task current count:%d .",video_task_ctx.task_count);
 
     if (ngx_thread_mutex_unlock(&video_task_ctx.task_thread_mtx, video_task_ctx.log) != NGX_OK) {
@@ -551,7 +551,7 @@ ngx_media_task_destory_task(ngx_media_task_t* task)
         tmptask = tmptask->next_task;
     }
 
-    ngx_log_debug1(NGX_LOG_DEBUG_CORE, task->log, 0,
+    ngx_log_error(NGX_LOG_INFO, task->log, 0,
                           "ngx http video task destory the task current count:%d .",video_task_ctx.task_count);
 
     if (ngx_thread_mutex_unlock(&video_task_ctx.task_thread_mtx, video_task_ctx.log) != NGX_OK) {
@@ -611,7 +611,7 @@ ngx_media_task_destory_workers(ngx_media_task_t* task)
             if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
                 if(NULL != worker->worker) {
                     if(NGX_OK != worker->worker->release_worker(worker)) {
-                        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, worker->log, 0,
+                        ngx_log_error(NGX_LOG_WARN, worker->log, 0,
                                      "ngx http video task release task worker fail.");
                     }
                 }
@@ -627,7 +627,7 @@ ngx_media_task_destory_workers(ngx_media_task_t* task)
 static void
 ngx_media_task_write_dummy_handler(ngx_event_t *ev)
 {
-    ngx_log_debug0(NGX_LOG_DEBUG, ev->log, 0,
+    ngx_log_error(NGX_LOG_INFO,ev->log, 0,
                    "trans rreport http dummy handler");
 }
 
@@ -641,7 +641,7 @@ ngx_media_task_write_handler(ngx_event_t *wev)
     c = wev->data;
     ctx  = c->data;
 
-    ngx_log_debug0(NGX_LOG_DEBUG, wev->log, 0,
+    ngx_log_error(NGX_LOG_INFO, wev->log, 0,
                    "trans report http write handler");
 
     if (wev->timedout) {
@@ -707,7 +707,7 @@ ngx_media_task_read_handler(ngx_event_t *rev)
     c = rev->data;
     ctx  = c->data;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
+    ngx_log_error(NGX_LOG_INFO, rev->log, 0,
                    "trans report http read handler");
 
     if (rev->timedout) {
@@ -1077,7 +1077,7 @@ ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_w
         paramNode = paramNode->next;
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, task->log, 0,
+    ngx_log_error(NGX_LOG_INFO, task->log, 0,
                           "ngx http video task deal params end.");
     return ;
 }
@@ -1335,7 +1335,7 @@ ngx_media_task_deal_triggers(xmlNodePtr curNode,ngx_str_t* taskid,ngx_media_work
         triggerNode = triggerNode->next;
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, worker->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, worker->log, 0,
                           "ngx http video task deal triggers end.");
     return ;
 }
@@ -1505,7 +1505,7 @@ ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
         return NGX_ERROR;
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, task->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, task->log, 0,
                           "ngx http video task deal workers end.");
     return NGX_OK;
 }
@@ -1544,13 +1544,13 @@ ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc)
 
     attr_value = xmlGetProp(curNode,BAD_CAST "taskid");
     if(NULL == attr_value){
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+        ngx_log_error(NGX_LOG_ERR, video_task_ctx.log, 0,
                                  "ngx http video task start task ,get task id fail.");
         return NGX_MEDIA_ERROR_CODE_XML_ERROR;
     }
 
     if(NGX_OK == ngx_media_task_check_task_exist((u_char*)attr_value)) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+        ngx_log_error(NGX_LOG_WARN, video_task_ctx.log, 0,
                                  "ngx http video task start task ,the  task id exist.");
         return NGX_MEDIA_ERROR_CODE_TASK_EXIST;
     }
@@ -1660,7 +1660,7 @@ error_start:
     /* report the start status */
     ngx_media_task_report_progress(task);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
                           "ngx http video task start task end.");
     return NGX_MEDIA_ERROR_CODE_OK;
 }
@@ -1681,7 +1681,7 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
 
     while(NULL != task) {
         if(ngx_strncmp(taskid->data,task->task_id.data,task->task_id.len) == 0) {
-            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+            ngx_log_error(NGX_LOG_INFO, video_task_ctx.log, 0,
                           "ngx http video task find the task:[%V] and stop it.",&task->task_id);
             if (ngx_thread_mutex_lock(&task->task_mtx, task->log) == NGX_OK) {
                 part  = &(task->workers->part);
@@ -1695,17 +1695,17 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
                         if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
                             if((ngx_media_worker_status_break == worker->status)
                                 ||(ngx_media_worker_status_end == worker->status)){
-                                ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+                                ngx_log_error(NGX_LOG_INFO, video_task_ctx.log, 0,
                                              "ngx http video task stop task worker,but the worker is stopped.");
                                 continue;
                             }
                             if((NULL == worker->worker)) {
-                                ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+                                ngx_log_error(NGX_LOG_WARN, video_task_ctx.log, 0,
                                              "ngx http video task stop task worker,but the worker is null.");
                                 continue;
                             }
                             if(NGX_OK != worker->worker->stop_worker(worker)) {
-                                ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+                                ngx_log_error(NGX_LOG_WARN, video_task_ctx.log, 0,
                                              "ngx http video task stop task worker fail.");
                             }
                             ngx_thread_mutex_unlock(&worker->work_mtx, worker->log);
@@ -1727,12 +1727,12 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
     }
 
     if(!stop) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+        ngx_log_error(NGX_LOG_WARN, video_task_ctx.log, 0,
                           "ngx http video task stop task end,but there is no task.");
         return NGX_MEDIA_ERROR_CODE_TASK_NO_EXIST;
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
                           "ngx http video task stop task end.");
 
     return NGX_MEDIA_ERROR_CODE_OK;
@@ -1741,7 +1741,7 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
 static int
 ngx_media_task_update_task(xmlDocPtr doc)
 {
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
                           "ngx http video task update task end.");
     return NGX_MEDIA_ERROR_CODE_OK;//todo:
 }
@@ -1994,7 +1994,7 @@ ngx_media_task_deal_static_xml(ngx_tree_ctx_t *ctx, ngx_str_t *path)
                           "ngx http video task deal xml req error,ret:%d.",ret);
     }
 
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, conf->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, conf->log, 0,
                           "ngx http video task deal xml req,ret:%d.",ret);
     xmlFreeDoc(doc);
 
@@ -2101,7 +2101,7 @@ ngx_media_task_check_task(ngx_event_t *ev)
 
     ngx_media_task_check_workers(task);
 
-    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
                           "ngx http video task check task:[%V],status:[%d] start.",
                           &task->task_id,task->status);
 
@@ -2112,12 +2112,12 @@ ngx_media_task_check_task(ngx_event_t *ev)
             &&((now - task->lastreport) > TASK_INVALIED_TIME)) {
             ngx_media_task_report_progress(task);
             task->lastreport = now;
-            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+            ngx_log_error(NGX_LOG_INFO, video_task_ctx.log, 0,
                           "ngx http video task report task:[%V] running progress.",&task->task_id);
         }
     } else{
         ngx_media_task_report_progress(task);
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+        ngx_log_error(NGX_LOG_INFO, video_task_ctx.log, 0,
                           "ngx http video task report task:[%V] stop progress.",&task->task_id);
     }
     if((ngx_media_worker_status_end== task->status)
@@ -2130,7 +2130,7 @@ ngx_media_task_check_task(ngx_event_t *ev)
 
     ngx_add_timer(&task->time_event, TASK_CHECK_INTERVAL);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, video_task_ctx.log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
                           "ngx http video task check task end.");
     return;
 }
@@ -2262,7 +2262,7 @@ ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_
     }
 
     ngx_media_task_error_xml(r,out,ret,curNode);
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0,
                           "ngx http video task deal xml req,ret:%d.",ret);
     xmlFreeDoc(doc);
     return;

@@ -211,7 +211,7 @@ ngx_media_system_handler(ngx_http_request_t *r)
 {
     ngx_int_t                      rc;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
                           "ngx http vido handle manage request.");
 
 
@@ -1393,7 +1393,7 @@ ngx_media_system_disk_stat(ngx_http_request_t *r,ngx_chain_t* out)
     }
 
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,"ngx_media_system_disk_stat");
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,"ngx_media_system_disk_stat");
 
     /* Creates a new document, a node and set it as a root node*/
     resp_doc = xmlNewDoc(BAD_CAST "1.0");
@@ -1811,7 +1811,7 @@ ngx_media_system_disk_delete(ngx_http_request_t *r,xmlNodePtr Node,ngx_chain_t* 
     xmlNewProp(root_node, BAD_CAST "err_msg", BAD_CAST "success");
     xmlDocSetRootElement(resp_doc, root_node);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
                                "ngx_media_system_disk_delete,delete file or dir begin.");
     /* operate node */
     curNode = Node->children;
@@ -1868,7 +1868,7 @@ ngx_media_system_disk_delete(ngx_http_request_t *r,xmlNodePtr Node,ngx_chain_t* 
         last = ngx_snprintf(path.data,size, "%V%s", &kv_diskInfo[i].value,attr_dir);
         *last = '\0';
 
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP,  r->connection->log, 0,
+        ngx_log_error(NGX_LOG_INFO,  r->connection->log, 0,
                               "ngx_media_system_disk_delete,dir:[%V].",&path);
 
         /* check all the task xml file,and start the task */
@@ -1910,7 +1910,7 @@ ngx_media_system_disk_delete(ngx_http_request_t *r,xmlNodePtr Node,ngx_chain_t* 
 
                     last = ngx_snprintf(sub_path.data,size, "%V/%s", &path,attr_name);
                     *last = '\0';
-                    ngx_log_debug1(NGX_LOG_DEBUG_HTTP,  r->connection->log, 0,
+                    ngx_log_error(NGX_LOG_INFO,  r->connection->log, 0,
                                           "ngx_media_system_disk_delete,delete file:[%V].",&sub_path);
                     if (ngx_delete_file(sub_path.data) == NGX_FILE_ERROR) {
                         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -1931,7 +1931,7 @@ ngx_media_system_disk_delete(ngx_http_request_t *r,xmlNodePtr Node,ngx_chain_t* 
 
                     last = ngx_snprintf(sub_path.data,size, "%V/%s", &path,attr_name);
                     *last = '\0';
-                    ngx_log_debug1(NGX_LOG_DEBUG_HTTP,  r->connection->log, 0,
+                    ngx_log_error(NGX_LOG_INFO,  r->connection->log, 0,
                                           "ngx_media_system_disk_delete,delete sub dir:[%V].",&sub_path);
                     if (ngx_walk_tree(&tree, &sub_path) != NGX_OK) {
                         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -1946,7 +1946,7 @@ ngx_media_system_disk_delete(ngx_http_request_t *r,xmlNodePtr Node,ngx_chain_t* 
         curNode = curNode->next;
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
                               "ngx_media_system_disk_delete,delete file or dir end.");
     if(NULL != Node) {
        disk_node = xmlCopyNodeList(Node);
@@ -2071,7 +2071,7 @@ ngx_media_system_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chai
 
     curNode = curNode->children;
     if (!xmlStrcmp(curNode->name, BAD_CAST SYSTEM_XML_DISK)) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
                           "http video system find the xml disk node :%s.",curNode->name);
         ret = ngx_media_system_disk_req(r,doc,out);
 
@@ -2084,7 +2084,7 @@ ngx_media_system_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chai
     }
 
     xmlFreeDoc(doc);
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
                           "ngx http video task deal xml req,ret:%d.",ret);
     return ret;
 }

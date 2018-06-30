@@ -86,11 +86,11 @@ ngx_media_worker_mk_init(ngx_media_worker_ctx_t* ctx,WK_WATCH watch)
     ngx_uint_t lens = sizeof(ngx_worker_mk_ctx_t);
     ngx_worker_mk_ctx_t *worker_ctx = ngx_pcalloc(ctx->pool,lens);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, ctx->log, 0,
                           "ngx_media_worker_mk_init begin");
 
     if(NULL == worker_ctx) {
-       ngx_log_debug0(NGX_LOG_ERR, ctx->log, 0,
+       ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                           "ngx_media_worker_mk_init allocate mk ctx fail.");
         return NGX_ERROR;
     }

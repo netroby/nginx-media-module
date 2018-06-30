@@ -773,7 +773,7 @@ ngx_media_live_get_free_session(ngx_media_live_session_ctx_t* ctx,ngx_str_t* uri
 static void
 ngx_media_live_report_write_dummy_handler(ngx_event_t *ev)
 {
-    ngx_log_debug0(NGX_LOG_DEBUG, ev->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, ev->log, 0,
                    "media live rreport http dummy handler");
 }
 
@@ -787,7 +787,7 @@ ngx_media_live_report_write_handler(ngx_event_t *wev)
     c = wev->data;
     ctx  = c->data;
 
-    ngx_log_debug0(NGX_LOG_DEBUG, wev->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, wev->log, 0,
                    "media live report http write handler");
 
     if (wev->timedout) {
@@ -853,7 +853,7 @@ ngx_media_live_report_read_handler(ngx_event_t *rev)
     c = rev->data;
     ctx  = c->data;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG_HTTP, rev->log, 0,
                    "trans report http read handler");
 
     if (rev->timedout) {

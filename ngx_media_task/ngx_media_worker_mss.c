@@ -553,11 +553,11 @@ ngx_media_worker_mss_init(ngx_media_worker_ctx_t* ctx,WK_WATCH watch)
     ngx_uint_t lens = sizeof(ngx_worker_mss_ctx_t);
     ngx_worker_mss_ctx_t *worker_ctx = ngx_pcalloc(ctx->pool,lens);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
+    ngx_log_error(NGX_LOG_DEBUG, ctx->log, 0,
                           "ngx_media_worker_mss_init begin");
 
     if(NULL == worker_ctx) {
-        ngx_log_debug0(NGX_LOG_ERR, ctx->log, 0,
+        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                           "ngx_media_worker_mss_init allocate mss ctx fail.");
         return NGX_ERROR;
     }
@@ -583,7 +583,7 @@ ngx_media_worker_mss_init(ngx_media_worker_ctx_t* ctx,WK_WATCH watch)
 
     /* parser the mss args */
     if(NGX_OK != ngx_media_worker_mss_parser_args(ctx)) {
-        ngx_log_debug0(NGX_LOG_ERR, ctx->log, 0,
+        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                           "ngx_media_worker_mss_init,parser the mss args fail.");
         return NGX_ERROR;
     }

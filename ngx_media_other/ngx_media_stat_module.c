@@ -529,7 +529,7 @@ ngx_media_stat_stop_task(ngx_http_request_t *r,ngx_str_t* taskid)
 
                 if(ngx_media_worker_status_running == worker->status) {
                     if(NGX_OK != worker->worker->stop_worker(worker)) {
-                        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                                      "ngx http video task trigger start task worker fail.");
                     }
                 }
@@ -597,7 +597,7 @@ ngx_media_stat_stop_worker(ngx_http_request_t *r,ngx_str_t* taskid,ngx_str_t* wo
 
                 if(ngx_media_worker_status_running == worker->status) {
                     if(NGX_OK != worker->worker->stop_worker(worker)) {
-                        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                                      "ngx http video task trigger start task worker fail.");
                     }
                 }
