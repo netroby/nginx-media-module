@@ -335,7 +335,7 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
     }
     /* init the media kernel log handle */
     if(NGX_CONF_UNSET == mainconf->task_mk_log) {
-        enLevel = AV_LOG_FATAL;
+        enLevel = MK_LOG_LEVEL_FATAL;
         mk_log_init(NULL,enLevel,NULL);
     }
     else {
