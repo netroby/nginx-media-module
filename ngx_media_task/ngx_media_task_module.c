@@ -1882,7 +1882,7 @@ ngx_media_task_dump_info(ngx_media_task_t* task)
 
 
     /* start the master worker first */
-    ngx_log_error(NGX_LOG_DEBUG, task->log, 0,
+    ngx_log_error(NGX_LOG_INFO, task->log, 0,
                           "dump the task:[%V]:",&task->task_id);
     part  = &(task->workers->part);
     while (part)
@@ -1892,7 +1892,7 @@ ngx_media_task_dump_info(ngx_media_task_t* task)
         for (; loop < part->nelts; loop++)
         {
             worker = &array[loop];
-            ngx_log_error(NGX_LOG_DEBUG, task->log, 0,
+            ngx_log_error(NGX_LOG_INFO, task->log, 0,
                           "\t the worker:[%V],params:",&worker->wokerid);
             ngx_int_t i = 0;
             for(;i < worker->nparamcount;i++) {
@@ -1904,13 +1904,13 @@ ngx_media_task_dump_info(ngx_media_task_t* task)
 
                 if(NULL != value) {
                    if('-' != value[0]) {
-                        ngx_log_error(NGX_LOG_DEBUG, task->log, 0,
+                        ngx_log_error(NGX_LOG_INFO, task->log, 0,
                                "\t\t arg:[%s] value:[%s]",arg,value);
                         i++;
                         continue;
                    }
                 }
-                ngx_log_error(NGX_LOG_DEBUG, task->log, 0,
+                ngx_log_error(NGX_LOG_INFO, task->log, 0,
                                "\t\t arg:[%s]",arg);
             }
         }

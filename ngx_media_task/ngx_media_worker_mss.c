@@ -287,24 +287,24 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
     /* 1.parse the response */
     cJSON* root = cJSON_Parse((char*)worker_ctx->mss_resp_msg.data);
     if (NULL == root) {
-        ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message parser fail.");
+        ngx_log_error(NGX_LOG_WARN, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message parser fail.");
         return NGX_ERROR;
     }
     do {
         cJSON *resultCode = cJSON_GetObjectItem(root, "resultCode");
         if(NULL == resultCode) {
-            ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message there is no resultCode.");
+            ngx_log_error(NGX_LOG_WARN, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message there is no resultCode.");
             break;
         }
 
         if(0 != ngx_strncmp(NGX_MSS_ERROR_CODE_OK,resultCode->valuestring,ngx_strlen(NGX_MSS_ERROR_CODE_OK))) {
-            ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel, resultCode:[%s] is not success.",resultCode->valuestring);
+            ngx_log_error(NGX_LOG_WARN, worker_ctx->log, 0,"ngx media worker mss start media kernel, resultCode:[%s] is not success.",resultCode->valuestring);
             break;
         }
 
         cJSON *url = cJSON_GetObjectItem(root, "url");
         if(NULL == url) {
-            ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message there is no url.");
+            ngx_log_error(NGX_LOG_WARN, worker_ctx->log, 0,"ngx media worker mss start media kernel, json message there is no url.");
             break;
         }
 
