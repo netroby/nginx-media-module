@@ -505,8 +505,8 @@ ngx_media_worker_mss_url_request(ngx_worker_mss_ctx_t *ctx)
         CURLcode eResult = curl_easy_perform(ctx->mss_req);
     	if (CURLE_OK != eResult) {
             ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                              "ngx_media_worker_mss_url_request, worker:[%V] curl perform fail.",
-                              &ctx->wk_ctx->wokerid);
+                              "ngx_media_worker_mss_url_request, worker:[%V] curl perform fail,code:[%d],result:[%s].",
+                              &ctx->wk_ctx->wokerid,eResult,curl_easy_strerror(eResult));
     		break;
     	}
 
