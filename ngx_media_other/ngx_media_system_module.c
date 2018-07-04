@@ -82,7 +82,7 @@ static void      ngx_media_system_zk_stream_exsit_completion_t(int rc, const str
 static void      ngx_media_system_zk_stream_create_completion_t(int rc, const char *value, const void *data);
 static void      ngx_media_system_zk_stream_node_create_completion_t(int rc, const char *value, const void *data);
 static void      ngx_media_system_zk_stream_get_completion_t(int rc, const char *value, int value_len, const struct Stat *stat, const void *data);
-static void      ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const char *value, int value_len,char* zk_path);
+static void      ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const char *value, int value_len,char* zk_path,ngx_uint_t svr_flag);
 static void      ngx_media_system_zk_watcher(zhandle_t *zh, int type,int state, const char *path,void *watcherCtx);
 static void      ngx_media_system_zk_init_timer(ngx_media_system_main_conf_t* conf);
 static void      ngx_media_system_zk_check_timeout(ngx_event_t *ev);
@@ -715,7 +715,7 @@ ngx_media_system_zk_transcode_get_completion_t(int rc, const char *value, int va
     {
        if((NGX_ALLMEDIA_TYPE_TRANSCODE == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_TRANSCODE))
             &&(NULL != conf->sys_conf.str_zk_trans_path)){
-           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_trans_path);
+           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_trans_path,NGX_ALLMEDIA_TYPE_TRANSCODE);
        }
 
     }
@@ -822,7 +822,7 @@ ngx_media_system_zk_access_get_completion_t(int rc, const char *value, int value
     {
        if((NGX_ALLMEDIA_TYPE_ACCESS == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_ACCESS))
             &&(NULL != conf->sys_conf.str_zk_access_path)){
-           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_access_path);
+           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_access_path,NGX_ALLMEDIA_TYPE_ACCESS);
        }
 
     }
@@ -931,7 +931,7 @@ ngx_media_system_zk_stream_get_completion_t(int rc, const char *value, int value
     {
        if((NGX_ALLMEDIA_TYPE_STREAM == (conf->sys_conf.sch_server_flags&NGX_ALLMEDIA_TYPE_STREAM))
             &&(NULL != conf->sys_conf.str_zk_stream_path)){
-           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_stream_path);
+           ngx_media_system_zk_sync_system_info(conf,value,value_len,conf->sys_conf.str_zk_stream_path,NGX_ALLMEDIA_TYPE_STREAM);
        }
 
     }
@@ -1014,7 +1014,9 @@ ngx_media_system_zk_check_timeout(ngx_event_t *ev)
     ngx_add_timer(&conf->sch_zk_timer, conf->sys_conf.sch_zk_update);
 }
 static void
-ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const char *value, int value_len,char* zk_path)
+ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf,
+                                     const char *value, int value_len,
+                                     char* zk_path,ngx_uint_t svr_flag)
 {
     ngx_uint_t i              = 0;
     ngx_uint_t ullCpuPer      = 0;
@@ -1042,7 +1044,7 @@ ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const c
     cJSON *HlsObj,*HlsCount,*HlsMax;
     cJSON *RtspObj,*RtspCount,*RtspMax;
     cJSON *cpuObj, *memObj,*memTotalObj,*memUsedObj,*memUnitObj;
-    cJSON *signalipObj,*serviceipObj,*ipObj,*ipUnitObj;
+    cJSON *signalipObj,*serviceipObj,*ipObj,*netObj,*ipUnitObj;
     cJSON *totalSize,*recvSize,*sendSize;
     cJSON *diskList,*diskObj;
     cJSON *vpath,*path,*diskSize,*usedSize,*diskUnitObj;
@@ -1205,8 +1207,10 @@ ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const c
         }
         ngx_media_sys_stat_get_networkcardinfo(cbuf,&ulTotalSize,&ulUsedRecvSize,&ulUsedSendSize);
 
-        if((NULL != conf->sys_conf.sch_service_ip.value.data)&&(0 < conf->sys_conf.sch_service_ip.value.len)) {
-            /* set the firewall address */
+        if((NGX_ALLMEDIA_TYPE_STREAM == svr_flag)
+           &&(NULL != conf->sys_conf.sch_service_ip.value.data)
+           &&(0 < conf->sys_conf.sch_service_ip.value.len)) {
+            /* the stream server set the firewall address */
             last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.value.data,conf->sys_conf.sch_service_ip.value.len);
             *last = '\0';
         }
@@ -1214,6 +1218,23 @@ ngx_media_system_zk_sync_system_info(ngx_media_system_main_conf_t* conf, const c
         ipObj = cJSON_GetObjectItem(serviceipObj,"ip");
         if(ipObj == NULL){
             cJSON_AddItemToObject(serviceipObj,"ip",ipObj = cJSON_CreateString((char*)&cbuf[0]));
+        }
+
+        if((NULL != conf->sys_conf.sch_service_ip.value.data)
+           &&(0 < conf->sys_conf.sch_service_ip.value.len)) {
+            if(NGX_ALLMEDIA_TYPE_STREAM != svr_flag) {
+                last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.value.data,conf->sys_conf.sch_service_ip.value.len);
+                *last = '\0';
+            }
+            else {
+                last = ngx_cpymem(cbuf,conf->sys_conf.sch_service_ip.key.data,conf->sys_conf.sch_service_ip.key.len);
+               *last = '\0';
+            }
+
+            netObj = cJSON_GetObjectItem(serviceipObj,"net");
+            if(netObj == NULL){
+                cJSON_AddItemToObject(serviceipObj,"net",netObj = cJSON_CreateString((char*)&cbuf[0]));
+            }
         }
         ipUnitObj = cJSON_GetObjectItem(serviceipObj,"uint");
         if(ipUnitObj == NULL){
