@@ -1551,7 +1551,7 @@ ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc)
 
     if(NGX_OK == ngx_media_task_check_task_exist((u_char*)attr_value)) {
         ngx_log_error(NGX_LOG_WARN, video_task_ctx.log, 0,
-                                 "ngx http video task start task ,the  task id exist.");
+                                 "ngx http video task start task ,the  task id:[%s] exist.",attr_value);
         return NGX_MEDIA_ERROR_CODE_TASK_EXIST;
     }
 
@@ -1670,8 +1670,11 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
     ngx_media_task_t         *task   = NULL;
     ngx_media_worker_ctx_t   *worker = NULL;
     ngx_media_worker_ctx_t   *array  = NULL;
-    ngx_list_part_t               *part   = NULL;
-    ngx_uint_t                     stop   = 0;
+    ngx_list_part_t          *part   = NULL;
+    ngx_uint_t                stop   = 0;
+
+    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
+                          "ngx http video task stop task:[%V] begin.",taskid);
 
     if (ngx_thread_mutex_lock(&video_task_ctx.task_thread_mtx, video_task_ctx.log) != NGX_OK) {
         return NGX_MEDIA_ERROR_CODE_SYS_ERROR;
@@ -1728,12 +1731,12 @@ ngx_media_task_stop_task(ngx_str_t* taskid)
 
     if(!stop) {
         ngx_log_error(NGX_LOG_WARN, video_task_ctx.log, 0,
-                          "ngx http video task stop task end,but there is no task.");
+                          "ngx http video task stop task end,but there is no task:[%V].",taskid);
         return NGX_MEDIA_ERROR_CODE_TASK_NO_EXIST;
     }
 
     ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
-                          "ngx http video task stop task end.");
+                          "ngx http video task stop task:[%V] end.",taskid);
 
     return NGX_MEDIA_ERROR_CODE_OK;
 }
