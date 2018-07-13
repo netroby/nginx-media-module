@@ -298,7 +298,10 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
         }
 
         if(0 != ngx_strncmp(NGX_MSS_ERROR_CODE_OK,resultCode->valuestring,ngx_strlen(NGX_MSS_ERROR_CODE_OK))) {
-            ngx_log_error(NGX_LOG_WARN, worker_ctx->log, 0,"ngx media worker mss start media kernel, resultCode:[%s] is not success.",resultCode->valuestring);
+            ngx_log_error(NGX_LOG_WARN, worker_ctx->log, 0,"ngx media worker mss start media kernel, "
+                                                           "camera:[%V], resultCode:[%s] is not success.",
+                                                           &worker_ctx->mss_arg.mss_cameraid,
+                                                           resultCode->valuestring);
             break;
         }
 
@@ -313,7 +316,9 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
         u_char* last = ngx_cpymem(worker_ctx->mk_paramlist[11], url->valuestring,lens);
         *last = '\0';
         flag = 1;
-        ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel,the url:[%s].",worker_ctx->mk_paramlist[11]);
+        ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel,camera:[%V],the url:[%s].",
+                                                       &worker_ctx->mss_arg.mss_cameraid,
+                                                        worker_ctx->mk_paramlist[11]);
     }while(0);
     cJSON_Delete(root);
 
@@ -505,8 +510,10 @@ ngx_media_worker_mss_url_request(ngx_worker_mss_ctx_t *ctx)
         CURLcode eResult = curl_easy_perform(ctx->mss_req);
     	if (CURLE_OK != eResult) {
             ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                              "ngx_media_worker_mss_url_request, worker:[%V] curl perform fail,code:[%d],result:[%s].",
-                              &ctx->wk_ctx->wokerid,eResult,curl_easy_strerror(eResult));
+                              "ngx_media_worker_mss_url_request, worker:[%V] camera:[%V]"
+                              "curl perform fail,code:[%d],result:[%s].",
+                              &ctx->wk_ctx->wokerid,&ctx->mss_arg.mss_cameraid,
+                              eResult,curl_easy_strerror(eResult));
     		break;
     	}
 
