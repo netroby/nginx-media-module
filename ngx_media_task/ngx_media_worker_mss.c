@@ -251,6 +251,8 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
             error_code = NGX_MEDIA_ERROR_CODE_RUN_TASK_ERROR;
         }
         */
+        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                              "ngx_media_worker_mss_timer worker:[%V] get mk status:[%d].",&ctx->wokerid,status);
         if(MK_TASK_STATUS_INIT == status) {
         worker_ctx->watcher(ngx_media_worker_status_running,error_code,worker_ctx->wk_ctx);
         }
@@ -260,7 +262,7 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
         else if(MK_TASK_STATUS_RUNNING == status) {
             worker_ctx->watcher(ngx_media_worker_status_running,error_code,worker_ctx->wk_ctx);
         }
-        else if(MK_TASK_STATUSS_STOP == status) {
+        else if(MK_TASK_STATUS_STOP == status) {
             worker_ctx->watcher(ngx_media_worker_status_end,error_code,worker_ctx->wk_ctx);
             worker_ctx->status = NGX_MEDIA_WOKER_MSS_STATUS_END;
         }

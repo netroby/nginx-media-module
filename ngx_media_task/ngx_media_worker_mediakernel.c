@@ -65,14 +65,14 @@ ngx_media_worker_mk_timer(ngx_event_t *ev)
     else if(MK_TASK_STATUS_RUNNING == status) {
         worker_ctx->watcher(ngx_media_worker_status_running,error_code,worker_ctx->wk_ctx);
     }
-    else if(MK_TASK_STATUSS_STOP == status) {
+    else if(MK_TASK_STATUS_STOP == status) {
         worker_ctx->watcher(ngx_media_worker_status_end,error_code,worker_ctx->wk_ctx);
     }
     else {
         worker_ctx->watcher(ngx_media_worker_status_break,error_code,worker_ctx->wk_ctx);
     }
 
-    if(MK_TASK_STATUSS_STOP == status) {
+    if(MK_TASK_STATUS_STOP == status) {
         return;
     }
     ngx_add_timer(&worker_ctx->timer,NGG_HTTP_VIDEO_MK_TIME);

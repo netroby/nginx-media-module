@@ -6,18 +6,19 @@
       <worker id="0" type="2" master="1">
         <params>
           <param name="mss_addr"       value="http://112.13.167.212:10000/mss/v1/api/media/live"/>
-          <param name="mss_cameraid"   value="33000000000105010103000000000280"/>
+          <param name="mss_cameraid"   value="33000000000105010103000000000291"/>
           <param name="mss_type"       value="live"/>
           <param name="mss_streamtype" value="1"/>
           <param name="mss_username"   value="zjAdmin"/>
           <param name="mss_password"   value="Huawei@2018"/>
           <param name="vcodec"         value="libx264"/>
+          <param name="threads"        value="4"/>
           <param name="s"              value="1280x720"/>
           <param name="b"              value="1500k"/>
           <!--param name="acodec" value="aac"/-->
           <param name="an" />
           <param name="f"              value="flv"/>
-          <param name="dst"            value="rtmp://112.13.167.223:1935/live/hexin"/>
+          <param name="dst"            value="rtmp://112.13.167.223:1935/live/33000000000105010103000000000291"/>
         </params>
       </worker>
     </workers>

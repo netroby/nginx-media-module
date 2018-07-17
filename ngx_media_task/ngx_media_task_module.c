@@ -105,6 +105,14 @@ static ngx_int_t ngx_media_task_deal_static_xml(ngx_tree_ctx_t *ctx, ngx_str_t *
 
 
 
+static ngx_conf_enum_t  ngx_media_mk_log_level[] = {
+    { ngx_string("debug"),            MK_LOG_LEVEL_DEBUG    },
+    { ngx_string("info"),             MK_LOG_LEVEL_INFO     },
+    { ngx_string("warn"),             MK_LOG_LEVEL_WARNNING },
+    { ngx_string("error"),            MK_LOG_LEVEL_ERROR    },
+    { ngx_string("fatal"),            MK_LOG_LEVEL_FATAL    },
+    { ngx_null_string,                -1                    }
+};
 
 
 
@@ -127,10 +135,10 @@ static ngx_command_t  ngx_media_task_commands[] = {
 
     { ngx_string(NGX_HTTP_TASK_MK_LOG),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
+      ngx_conf_set_enum_slot,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_media_main_conf_t, task_mk_log),
-      NULL },
+      &ngx_media_mk_log_level },
 
     { ngx_string(NGX_HTTP_TASK_ARGS),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
@@ -2104,7 +2112,7 @@ ngx_media_task_check_task(ngx_event_t *ev)
 
     ngx_media_task_check_workers(task);
 
-    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
+    ngx_log_error(NGX_LOG_INFO, video_task_ctx.log, 0,
                           "ngx http video task check task:[%V],status:[%d] start.",
                           &task->task_id,task->status);
 
