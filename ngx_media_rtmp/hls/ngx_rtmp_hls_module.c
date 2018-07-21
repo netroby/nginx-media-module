@@ -114,6 +114,8 @@ typedef struct {
     ngx_str_t                           key_path;
     ngx_str_t                           key_url;
     ngx_uint_t                          frags_per_key;
+    /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+    ngx_flag_t                          fragdelete;
 } ngx_rtmp_hls_app_conf_t;
 
 
@@ -259,6 +261,14 @@ static ngx_command_t ngx_rtmp_hls_commands[] = {
       offsetof(ngx_rtmp_hls_app_conf_t, cleanup),
       NULL },
 
+    /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+    { ngx_string("hls_frag_delete"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_hls_app_conf_t, fragdelete),
+      NULL },
+
     { ngx_string("hls_variant"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
       ngx_rtmp_hls_variant,
@@ -361,6 +371,12 @@ ngx_rtmp_hls_next_frag(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_hls_ctx_t         *ctx;
     ngx_rtmp_hls_app_conf_t    *hacf;
+    /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+    ngx_rtmp_hls_frag_t        *f;
+    u_char                      buffer[1024];
+    ngx_str_t                   path;
+    ngx_file_info_t             fi;
+    ngx_int_t                   rc;
 
     hacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_hls_module);
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_hls_module);
@@ -370,6 +386,47 @@ ngx_rtmp_hls_next_frag(ngx_rtmp_session_t *s)
     } else {
         ctx->nfrags++;
     }
+
+    /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+    if(!hacf->fragdelete) {
+        return;
+    }
+
+    if(ctx->nfrags < hacf->winfrags) {
+        return;
+    }
+
+    f = ngx_rtmp_hls_get_frag(s, ctx->nfrags);
+
+    ngx_sprintf(buffer,"%V%uL.ts%Z",&ctx->stream,f->id);
+    path.data = &buffer[0];
+    path.len  = 1024;
+
+    ngx_log_error(NGX_LOG_INFO, s->connection->log, ngx_errno,
+                          "the ts file:[%s] is overtime so check and delete it",
+                          &buffer[0]);
+
+    rc = ngx_file_info(&buffer[0], &fi);
+    if (rc == NGX_FILE_ERROR)
+    {
+        return;
+    }
+    rc = ngx_is_file(&fi);
+    if(!rc)
+    {
+        return;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, s->connection->log, ngx_errno,
+                          "delete the ts file:[%s].",&buffer[0]);
+
+    if (ngx_delete_file(buffer) == NGX_FILE_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+                      "hls: delete " ngx_delete_file_n " failed on '%s'",
+                      &buffer[0]);
+    }
+
+    return;
 }
 
 
@@ -1581,7 +1638,7 @@ ngx_rtmp_hls_update_fragment(ngx_rtmp_session_t *s, uint64_t ts,
         d = (int64_t) (ts - ctx->frag_ts);
 
         if (d > (int64_t) hacf->max_fraglen * 90 || d < -90000) {
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                           "hls: force fragment split: %.3f sec, ", d / 90000.);
             force = 1;
 
@@ -2308,6 +2365,8 @@ ngx_rtmp_hls_create_app_conf(ngx_conf_t *cf)
     conf->granularity = NGX_CONF_UNSET;
     conf->keys = NGX_CONF_UNSET;
     conf->frags_per_key = NGX_CONF_UNSET_UINT;
+    /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+    conf->fragdelete = NGX_CONF_UNSET;
 
     return conf;
 }
@@ -2346,6 +2405,8 @@ ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_str_value(conf->key_path, prev->key_path, "");
     ngx_conf_merge_str_value(conf->key_url, prev->key_url, "");
     ngx_conf_merge_uint_value(conf->frags_per_key, prev->frags_per_key, 0);
+    /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+    ngx_conf_merge_value(conf->fragdelete, prev->fragdelete, 0);
 
     if (conf->fraglen) {
         conf->winfrags = conf->playlen / conf->fraglen;
@@ -2366,7 +2427,13 @@ ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
         }
 
         cleanup->path = conf->path;
-        cleanup->playlen = conf->playlen;
+        /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+        if (conf->fraglen) {
+            cleanup->playlen = (conf->max_fraglen * conf->playlen) / conf->fraglen;
+        }
+        else {
+            cleanup->playlen = conf->playlen * 2;
+        }
 
         conf->slot = ngx_pcalloc(cf->pool, sizeof(*conf->slot));
         if (conf->slot == NULL) {
@@ -2400,7 +2467,13 @@ ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
         }
 
         cleanup->path = conf->key_path;
-        cleanup->playlen = conf->playlen;
+        /*add by H.Kernel 2018-07-20 for delete the overtime frag */
+        if (conf->fraglen) {
+            cleanup->playlen = (conf->max_fraglen * conf->playlen) / conf->fraglen;
+        }
+        else {
+            cleanup->playlen = conf->playlen * 2;
+        }
 
         conf->slot = ngx_pcalloc(cf->pool, sizeof(*conf->slot));
         if (conf->slot == NULL) {

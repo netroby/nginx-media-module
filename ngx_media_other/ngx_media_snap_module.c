@@ -430,7 +430,7 @@ static ngx_int_t
 ngx_media_snap_handler(ngx_http_request_t *r)
 {
     ngx_int_t                      rc;
-    ngx_media_snap_loc_conf_t *video_conf;
+    ngx_media_snap_loc_conf_t     *video_conf;
     ngx_file_info_t                fi;
     u_char                        *last;
     size_t                         root;
