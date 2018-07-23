@@ -19,7 +19,7 @@
           <!--param name="map"            value="0:v"/--> 
           <!--param name="map"            value="1:a"/--> 
           <param name="vcodec"         value="libx264"/>
-          <param name="profile:v"      value="base"/> 
+          <param name="profile:v"      value="main"/> 
           <param name="preset:v"       value="fast"/> 
           <param name="level"          value="3.1"/>           
           <param name="maxrate"        value="1500k"/> 
