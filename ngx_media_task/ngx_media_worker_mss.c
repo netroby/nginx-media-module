@@ -160,7 +160,7 @@ ngx_media_worker_mss_parser_args(ngx_media_worker_ctx_t* ctx)
 
     ngx_int_t i = 0;
 
-    ngx_uint_t lens  = sizeof(u_char*)*(ctx->nparamcount + 12);
+    ngx_uint_t lens  = sizeof(u_char*)*(ctx->nparamcount + 14);
 
     mss_ctx->mk_paramlist    = ngx_pcalloc(ctx->pool,lens);
     mss_ctx->mk_nparamcount  = 0;
@@ -190,9 +190,14 @@ ngx_media_worker_mss_parser_args(ngx_media_worker_ctx_t* ctx)
     mss_ctx->mk_paramlist[9] = (u_char*)"5000000";
     mss_ctx->mk_nparamcount++;
 
-    mss_ctx->mk_paramlist[10] = (u_char*)"-src";
+    mss_ctx->mk_paramlist[10] = (u_char*)"-threads";
     mss_ctx->mk_nparamcount++;
-    mss_ctx->mk_paramlist[11] = (u_char*)"tmp"; /* replace by the mms return rtsp url */
+    mss_ctx->mk_paramlist[11] = (u_char*)"4";
+    mss_ctx->mk_nparamcount++;
+
+    mss_ctx->mk_paramlist[12] = (u_char*)"-src";
+    mss_ctx->mk_nparamcount++;
+    mss_ctx->mk_paramlist[13] = (u_char*)"tmp"; /* replace by the mms return rtsp url */
     mss_ctx->mk_nparamcount++;
 
     for(i = 0; i < ctx->nparamcount;i++) {
@@ -251,7 +256,7 @@ ngx_media_worker_mss_timer(ngx_event_t *ev)
             error_code = NGX_MEDIA_ERROR_CODE_RUN_TASK_ERROR;
         }
         */
-        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+        ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
                               "ngx_media_worker_mss_timer worker:[%V] get mk status:[%d].",&ctx->wokerid,status);
         if(MK_TASK_STATUS_INIT == status) {
         worker_ctx->watcher(ngx_media_worker_status_running,error_code,worker_ctx->wk_ctx);
@@ -314,13 +319,13 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
         }
 
         ngx_uint_t lens  = ngx_strlen(url->valuestring);
-        worker_ctx->mk_paramlist[11] = ngx_pcalloc(worker_ctx->pool,lens + 1);
-        u_char* last = ngx_cpymem(worker_ctx->mk_paramlist[11], url->valuestring,lens);
+        worker_ctx->mk_paramlist[13] = ngx_pcalloc(worker_ctx->pool,lens + 1);
+        u_char* last = ngx_cpymem(worker_ctx->mk_paramlist[13], url->valuestring,lens);
         *last = '\0';
         flag = 1;
         ngx_log_error(NGX_LOG_INFO, worker_ctx->log, 0,"ngx media worker mss start media kernel,camera:[%V],the url:[%s].",
                                                        &worker_ctx->mss_arg.mss_cameraid,
-                                                        worker_ctx->mk_paramlist[11]);
+                                                        worker_ctx->mk_paramlist[13]);
     }while(0);
     cJSON_Delete(root);
 
