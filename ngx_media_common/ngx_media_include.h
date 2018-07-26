@@ -23,13 +23,14 @@
 
 /* http video config file */
 
-#define NGX_HTTP_TRANS_TASK     "video_task"
-#define NGX_HTTP_TASK_ARGS      "task_args"
-#define NGX_HTTP_TASK_MONITOR   "task_monitor"
-#define NGX_HTTP_TASK_MK_LOG    "task_mk_log"
-#define NGX_HTTP_VIDEO_STAT     "video_stat"
-#define NGX_HTTP_STAT_PASSWD    "manage_password"
-#define NGX_HTTP_STATIC_TASK    "static_task"
+#define NGX_HTTP_TRANS_TASK      "video_task"
+#define NGX_HTTP_TASK_ARGS       "task_args"
+#define NGX_HTTP_TASK_MONITOR    "task_monitor"
+#define NGX_HTTP_TASK_MK_LOG     "task_mk_log"
+#define NGX_HTTP_TASK_MK_RESTART "task_mk_restart"
+#define NGX_HTTP_VIDEO_STAT      "video_stat"
+#define NGX_HTTP_STAT_PASSWD     "manage_password"
+#define NGX_HTTP_STATIC_TASK     "static_task"
 
 #define NGX_MEDIA_LIVE_CONF_FILE_DEFAULT       "../conf/shmcache.conf"
 
@@ -187,6 +188,8 @@ struct ngx_media_task_s {
     ngx_str_t                       task_id;
     volatile ngx_int_t              status;
     volatile time_t                 lastreport;
+    time_t                          starttime;
+    ngx_msec_t                      mk_restart;
     ngx_int_t                       error_code;
     ngx_int_t                       rep_inter;
     ngx_str_t                       rep_url;

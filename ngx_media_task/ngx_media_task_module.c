@@ -54,6 +54,7 @@ typedef struct {
     ngx_array_t                    *task_args;
     ngx_flag_t                      task_monitor;
     ngx_int_t                       task_mk_log;
+    ngx_msec_t                      task_mk_restart;
     ngx_str_t                       static_task;
     ngx_event_t                     static_task_timer;
     ngx_pool_t                     *pool;
@@ -139,6 +140,13 @@ static ngx_command_t  ngx_media_task_commands[] = {
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_media_main_conf_t, task_mk_log),
       &ngx_media_mk_log_level },
+
+    { ngx_string(NGX_HTTP_TASK_MK_RESTART),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_media_main_conf_t, task_mk_restart),
+      NULL },
 
     { ngx_string(NGX_HTTP_TASK_ARGS),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
@@ -257,13 +265,14 @@ ngx_media_task_create_main_conf(ngx_conf_t *cf)
     if (conf->task_args == NULL) {
         return NULL;
     }
-    conf->task_monitor  = NGX_CONF_UNSET;
-    conf->task_mk_log   = NGX_CONF_UNSET;
+    conf->task_monitor      = NGX_CONF_UNSET;
+    conf->task_mk_log       = NGX_CONF_UNSET;
+    conf->task_mk_restart   = NGX_CONF_UNSET_MSEC;
     ngx_str_null(&conf->static_task);
-    conf->log           = cf->log;
-    conf->pool          = cf->pool;
-    conf->resolver      = NULL;
-    conf->resolver_timeout = NGX_CONF_UNSET_MSEC;
+    conf->log               = cf->log;
+    conf->pool              = cf->pool;
+    conf->resolver          = NULL;
+    conf->resolver_timeout  = NGX_CONF_UNSET_MSEC;
 
     return conf;
 }
@@ -481,6 +490,8 @@ ngx_media_task_create_task(ngx_media_main_conf_t *conf)
     }
     task->arglist     = ngx_list_create(task->pool,TASK_ARGS_MAX,sizeof(ngx_keyval_t));
     task->rep_inter   = 60;
+    task->starttime   = time(NULL);
+    task->mk_restart  = conf->task_mk_restart;
     task->prev_task   = NULL;
     task->next_task   = NULL;
     ngx_str_null(&task->xml);
@@ -1878,6 +1889,9 @@ ngx_media_task_worker_watcher(ngx_uint_t status,ngx_int_t err_code,ngx_media_wor
         ctx->status      = status;
         ctx->error_code  = err_code;
         ctx->updatetime  = ngx_time();
+        if(ngx_media_worker_status_start == status) {
+            ctx->starttime  = ctx->updatetime;
+        }
         ngx_thread_mutex_unlock(&ctx->work_mtx, ctx->log);
     }
 }
@@ -2105,6 +2119,40 @@ end:
     return;
 }
 
+static ngx_int_t
+ngx_media_task_have_mk_worker(ngx_media_task_t* task)
+{
+    ngx_media_worker_ctx_t   *worker = NULL;
+    ngx_media_worker_ctx_t   *array  = NULL;
+    ngx_list_part_t          *part   = NULL;
+    ngx_int_t                 have   = 0;
+
+    if (ngx_thread_mutex_lock(&task->task_mtx, task->log) == NGX_OK) {
+        part  = &(task->workers->part);
+        while (part)
+        {
+            array = (ngx_media_worker_ctx_t*)(part->elts);
+            ngx_uint_t loop = 0;
+            for (; loop < part->nelts; loop++)
+            {
+                worker = &array[loop];
+                if(ngx_thread_mutex_lock(&worker->work_mtx, worker->log) == NGX_OK) {
+                    if((ngx_media_worker_mediakernel == worker->type)
+                        ||(ngx_media_worker_mss == worker->type)){
+                        have = 1;
+                    }
+                    ngx_thread_mutex_unlock(&worker->work_mtx, worker->log);
+                }
+            }
+            part = part->next;
+        }
+        ngx_thread_mutex_unlock(&task->task_mtx, task->log);
+    }
+
+    return have;
+}
+
+
 static void
 ngx_media_task_check_task(ngx_event_t *ev)
 {
@@ -2138,11 +2186,24 @@ ngx_media_task_check_task(ngx_event_t *ev)
         return;
     }
 
-
     ngx_add_timer(&task->time_event, TASK_CHECK_INTERVAL);
 
-    ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
+    ngx_msec_t past = (ngx_msec_t)((now - task->starttime)*1000);
+
+    if((!task->mk_restart)||(past < task->mk_restart)) {
+        ngx_log_error(NGX_LOG_DEBUG, video_task_ctx.log, 0,
                           "ngx http video task check task end.");
+        return;
+    }
+
+    if(0 == ngx_media_task_have_mk_worker(task)) {
+        return;
+    }
+
+    ngx_log_error(NGX_LOG_WARN, video_task_ctx.log, 0,
+                          "ngx http video task:[%V] timeout need auto stop,begin=%ui now=%ui restart=%M.",
+                          &task->task_id,task->starttime,now,task->mk_restart);
+    ngx_media_task_stop_task(&task->task_id);
     return;
 }
 

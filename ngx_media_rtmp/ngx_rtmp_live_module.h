@@ -36,6 +36,9 @@ struct ngx_rtmp_live_ctx_s {
     ngx_rtmp_live_chunk_stream_t        cs[2];
     ngx_uint_t                          meta_version;
     ngx_event_t                         idle_evt;
+    /* begin add by H.Kernel for rtmp live stream check */
+    ngx_event_t                         check_evt;
+    /* end add by H.Kernel for rtmp live stream check */
     unsigned                            active:1;
     unsigned                            publishing:1;
     unsigned                            silent:1;
@@ -72,6 +75,10 @@ typedef struct {
     ngx_flag_t                          play_restart;
     ngx_flag_t                          idle_streams;
     ngx_msec_t                          buflen;
+    /* begin add by H.Kernel for rtmp live stream check */
+    ngx_uint_t                          check_type;
+    ngx_msec_t                          check_timeout;
+    /* end add by H.Kernel for rtmp live stream check */
     ngx_pool_t                         *pool;
     ngx_rtmp_live_stream_t             *free_streams;
 } ngx_rtmp_live_app_conf_t;

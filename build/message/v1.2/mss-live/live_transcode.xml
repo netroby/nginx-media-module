@@ -1,5 +1,3 @@
--profile:v main -preset:v fast -level 3.1
-
 <?xml version="1.0" encoding="utf-8"?>
 <req version="1.0">
   <task taskid="33000000000105010103000000000290" command="start">
@@ -15,20 +13,22 @@
           <param name="mss_password"   value="Huawei@2018"/> 
           <param name="mss_password"   value="Huawei@2018"/> 
           <param name="stream_loop"    value="-1"/>  
-          <!--param name="src"            value="$(audio)2009.mp3"/-->  
-          <!--param name="map"            value="0:v"/--> 
-          <!--param name="map"            value="1:a"/--> 
+          <param name="src"            value="$(audio)third.mp3"/>  
+          <param name="map"            value="0:v"/> 
+          <param name="map"            value="1:a"/> 
           <param name="vcodec"         value="libx264"/>
           <param name="profile:v"      value="main"/> 
           <param name="preset:v"       value="fast"/> 
-          <param name="level"          value="3.1"/>           
+          <param name="level"          value="3.1"/>
+          <param name="keyint_min"     value="60"/>
+          <param name="g"              value="60"/>
+          <param name="sc_threshold"   value="0"/>          
           <param name="maxrate"        value="1500k"/> 
           <param name="minrate"        value="1000k"/> 
           <param name="bf"             value="0"/> 
           <param name="b_strategy"     value="0"/>          
           <param name="s"              value="1280x720"/>
-          <!--param name="acodec"         value="aac"/-->
-          <param name="an"/>
+          <param name="acodec"         value="aac"/>
           <param name="f"              value="flv"/>
           <param name="threads"        value="4"/>
           <param name="dst"            value="rtmp://172.16.0.21:1935/live/duanqiao"/>
