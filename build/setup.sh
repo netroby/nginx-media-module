@@ -561,7 +561,13 @@ build_mk_module()
     cd libMediakenerl*
     cd build/linux/
     chmod +x setup.sh
-    ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT}
+    
+    if [ "tag${WITHDEBUG}" == "tag" ];then
+        ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT}
+    else
+        ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT} -d TRUE
+    fi
+
     if [ 0 -ne ${?} ]; then
         echo "build the media kernel module fail!\n"
         return 1
@@ -582,7 +588,13 @@ build_mk_without_extend_module()
     cd libMediakenerl*
     cd build/linux/
     chmod +x setup.sh
-    ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT} -e FALSE
+    
+    if [ "tag${WITHDEBUG}" == "tag" ];then
+        ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT} -e FALSE
+    else
+        ./setup.sh -p ${EXTEND_ROOT} -t ${THIRD_ROOT} -e FALSE -d TRUE
+    fi
+    
     if [ 0 -ne ${?} ]; then
         echo "build the media kernel module fail!\n"
         return 1
