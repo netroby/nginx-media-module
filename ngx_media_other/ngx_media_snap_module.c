@@ -59,7 +59,7 @@
 
 
 
-//static ngx_event_t          hls_check_event;
+static char* ngx_media_snap_name = "ngx_media_snap";
 
 typedef struct {
     ngx_str_t                      source_dir;
@@ -192,7 +192,7 @@ ngx_media_snap_image(ngx_http_request_t *r,ngx_str_t *vpath,ngx_str_t* image,
     *last = '\0';
 
     /* create the mk handle to capture the image */
-    handle = mk_create_handle();
+    handle = mk_create_handle(ngx_media_snap_name);
     if(NULL == handle) {
         return;
     }
@@ -278,7 +278,7 @@ ngx_media_snap_gif(ngx_http_request_t *r,ngx_str_t *vpath,ngx_str_t* image,
     *last = '\0';
 
     /* create the mk handle to capture the image */
-    handle = mk_create_handle();
+    handle = mk_create_handle(ngx_media_snap_name);
     if(NULL == handle) {
         return;
     }
@@ -363,7 +363,7 @@ ngx_media_snap_mp4(ngx_http_request_t *r,ngx_str_t *vpath,ngx_str_t* mp4,
     *last = '\0';
 
     /* create the mk handle to capture the image */
-    handle = mk_create_handle();
+    handle = mk_create_handle(ngx_media_snap_name);
     if(NULL == handle) {
         return;
     }

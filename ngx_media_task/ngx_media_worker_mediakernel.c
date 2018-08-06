@@ -86,6 +86,10 @@ ngx_media_worker_mk_init(ngx_media_worker_ctx_t* ctx,WK_WATCH watch)
     ngx_uint_t lens = sizeof(ngx_worker_mk_ctx_t);
     ngx_worker_mk_ctx_t *worker_ctx = ngx_pcalloc(ctx->pool,lens);
 
+    u_char mk_name[TRANS_STRING_MAX_LEN];
+
+    ngx_memzero(&mk_name[0], TRANS_STRING_MAX_LEN);
+
     ngx_log_error(NGX_LOG_DEBUG, ctx->log, 0,
                           "ngx_media_worker_mk_init begin");
 
@@ -100,7 +104,10 @@ ngx_media_worker_mk_init(ngx_media_worker_ctx_t* ctx,WK_WATCH watch)
     ctx->priv_data_size = lens;
     ctx->priv_data      = worker_ctx;
 
-    worker_ctx->run_handle = mk_create_handle();
+    u_char* last = ngx_snprintf(mk_name,TRANS_STRING_MAX_LEN,"%V:%V", &ctx->taskid,&ctx->wokerid);
+    *last = '\0';
+
+    worker_ctx->run_handle = mk_create_handle((char*)&mk_name[0]);
     worker_ctx->watcher    = watch;
     worker_ctx->wk_ctx     = ctx;
     return NGX_OK;

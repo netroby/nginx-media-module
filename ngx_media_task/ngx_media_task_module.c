@@ -1460,6 +1460,8 @@ ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
         pWorker->log               = task->log;
         pWorker->resolver          = task->resolver;
         pWorker->resolver_timeout  = task->resolver_timeout;
+        pWorker->taskid.data       = task->task_id.data;
+        pWorker->taskid.len        = task->task_id.len;
 
         ngx_str_null(&pWorker->wokerid);
         pWorker->type   = ngx_media_worker_invalid;

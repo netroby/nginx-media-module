@@ -291,6 +291,11 @@ static ngx_uint_t
 ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
 {
     ngx_flag_t flag = 0;
+    ngx_media_worker_ctx_t* ctx = worker_ctx->wk_ctx;
+    u_char mk_name[TRANS_STRING_MAX_LEN];
+
+    ngx_memzero(&mk_name[0], TRANS_STRING_MAX_LEN);
+
     /* 1.parse the response */
     cJSON* root = cJSON_Parse((char*)worker_ctx->mss_resp_msg.data);
     if (NULL == root) {
@@ -335,7 +340,10 @@ ngx_media_worker_mss_start_media_kernel(ngx_worker_mss_ctx_t *worker_ctx)
     }
 
     /* 2. start the MK task */
-    worker_ctx->run_handle = mk_create_handle();
+    u_char* last = ngx_snprintf(mk_name,TRANS_STRING_MAX_LEN,"%V:%V", &ctx->taskid,&ctx->wokerid);
+    *last = '\0';
+
+    worker_ctx->run_handle = mk_create_handle((char*)&mk_name[0]);
     int32_t ret  = mk_run_task(worker_ctx->run_handle,worker_ctx->mk_nparamcount,(char**)worker_ctx->mk_paramlist);
 
     if (MK_ERROR_CODE_OK != ret ) {

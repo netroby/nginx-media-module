@@ -54,6 +54,7 @@ typedef struct ngx_media_worker_s ngx_media_worker_t;
 
 typedef struct {
     ngx_str_t                       wokerid;
+    ngx_str_t                       taskid;
     ngx_uint_t                      type;
     ngx_uint_t                      master;
     time_t                          starttime;
