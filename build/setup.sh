@@ -31,7 +31,7 @@ echo " ALLMEDIA_ROOT exported as ${ALLMEDIA_ROOT}"
 echo "------------------------------------------------------------------------------"
 
 #WITHDEBUG="--with-debug"
-WITHDEBUG=""
+export WITHDEBUG=""
 #NGX_LINK="--add-dynamic-module"
 NGX_LINK="--add-module"
 #
@@ -603,118 +603,6 @@ build_mk_without_extend_module()
     return 0
 }
 
-build_engine_module()
-{
-    cd ${THIRD_ROOT}/nginx-*
-    
-    make&&make install
-    
-    if [ 0 -ne ${?} ]; then
-       echo "make the nginx fail!\n"
-       return 1
-    fi
-    echo "make the nginx success!\n"
-    return 0
-}
-
-rebuild_engine_module()
-{
-
-    ###wget the nginx
-    cd ${THIRD_ROOT}
-    module_pack="nginx-1.14.0.tar.gz"
-    if [ ! -f ${THIRD_ROOT}${module_pack} ]; then
-        echo "start get the nginx package from server\n"
-        if [ ! -x "`which wget 2>/dev/null`" ]; then
-            echo "Need to install wget."
-            return 1
-        fi
-        wget http://nginx.org/download/${module_pack}
-    fi
-    tar -zxvf ${module_pack}
-    
-    
-    basic_opt=" --prefix=${PREFIX_ROOT} ${WITHDEBUG} 
-                --with-threads 
-                --with-file-aio 
-                --with-http_ssl_module 
-                --with-http_realip_module 
-                --with-http_addition_module 
-                --with-http_sub_module 
-                --with-http_dav_module 
-                --with-http_flv_module 
-                --with-http_mp4_module 
-                --with-http_gunzip_module 
-                --with-http_gzip_static_module 
-                --with-http_random_index_module 
-                --with-http_secure_link_module 
-                --with-http_stub_status_module 
-                --with-http_auth_request_module 
-                --with-mail 
-                --with-mail_ssl_module 
-                --with-cc-opt=-O3 "
-                
-    
-    third_opt=""
-    cd ${THIRD_ROOT}/pcre*
-    if [ 0 -eq ${?} ]; then
-        third_opt="${third_opt} 
-                    --with-pcre=`pwd`"
-    fi
-    cd ${THIRD_ROOT}/zlib*
-    if [ 0 -eq ${?} ]; then
-        third_opt="${third_opt}
-                    --with-zlib=`pwd`"
-    fi
-    cd ${THIRD_ROOT}/openssl*
-    if [ 0 -eq ${?} ]; then
-        third_opt="${third_opt} 
-                    --with-openssl=`pwd`"
-    fi
-
-    
-    module_opt="" 
-    cd ${ALLMEDIA_ROOT}
-    if [ 0 -eq ${?} ]; then
-        module_opt="${module_opt} 
-                     --add-module=`pwd`"
-        LD_LIBRARY_PATH=${EXTEND_ROOT}/lib
-        LIBRARY_PATH=${EXTEND_ROOT}/lib
-        C_INCLUDE_PATH=${EXTEND_ROOT}/include
-        export LD_LIBRARY_PATH LIBRARY_PATH C_INCLUDE_PATH
-    fi
-        
-    all_opt="${basic_opt} ${third_opt} ${module_opt}"
-    
-    echo "all optiont info:\n ${all_opt}"
-    
-    cd ${THIRD_ROOT}/nginx-1.*
-    chmod +x configure
-    ./configure ${all_opt} 
-
-    if [ 0 -ne ${?} ]; then
-       echo "configure the nginx fail!\n"
-       return 1
-    fi
-
-    make&&make install
-    
-    if [ 0 -ne ${?} ]; then
-       echo "make the nginx fail!\n"
-       return 1
-    fi
-    cp ${SCRIPT_ROOT}/start ${PREFIX_ROOT}/sbin
-    cp ${SCRIPT_ROOT}/restart ${PREFIX_ROOT}/sbin
-    cp ${SCRIPT_ROOT}/stop ${PREFIX_ROOT}/sbin
-    chmod +x ${PREFIX_ROOT}/sbin/start
-    chmod +x ${PREFIX_ROOT}/sbin/restart
-    chmod +x ${PREFIX_ROOT}/sbin/stop
-    cp ${SCRIPT_ROOT}/nginx.conf ${PREFIX_ROOT}/conf
-    echo "make the nginx success!\n"
-    cd ${ALLMEDIA_ROOT}
-    return 0
-}
-
 
 build_allmedia_module()
 {
@@ -858,24 +746,9 @@ package_all()
     tar -zcvf allmedia.tar.gz allmedia/
     echo "package all success!\n"
 }
-build_nginx_media()
-{
-        
-    build_extend_modules
-    if [ 0 -ne ${?} ]; then
-        return
-    fi 
-    build_mk_module
-    if [ 0 -ne ${?} ]; then
-        return
-    fi
-    rebuild_engine_module
-    if [ 0 -ne ${?} ]; then
-        return
-    fi
-    echo "make the all modules success!\n"
-    cd ${ALLMEDIA_ROOT}
-}
+
+
+
 build_all_media()
 {
         
@@ -895,18 +768,19 @@ build_all_media()
     cd ${ALLMEDIA_ROOT}
 }
 
-all_engine_func()
+build_all_media_debug()
 {
-        TITLE="Setup the engine module"
-
-        TEXT[1]="rebuild the engine module"
-        FUNC[1]="rebuild_engine_module"
-        
-        TEXT[2]="build the engine module"
-        FUNC[2]="build_engine_module"
+    export WITHDEBUG="--with-debug"
+    build_all_media
 }
 
-all_media_func()
+build_all_media_release()
+{
+    export WITHDEBUG=""
+    build_all_media
+}
+
+all_allmedia_func()
 {
         TITLE="Setup the allmedia module"
 
@@ -935,12 +809,12 @@ all_modules_func()
 all_func()
 {
         TITLE="build module  "
-
-        TEXT[1]="build nginx media module"
-        FUNC[1]="build_nginx_media"
         
-        TEXT[2]="build allmedia module"
-        FUNC[2]="build_all_media"
+        TEXT[1]="build allmedia module"
+        FUNC[1]="build_all_media_release"
+        
+        TEXT[2]="build allmedia module(debug)"
+        FUNC[2]="build_all_media_debug"
             
         TEXT[3]="package module"
         FUNC[3]="package_all"
@@ -950,8 +824,7 @@ all_func()
 }
 STEPS[1]="all_func"
 STEPS[2]="all_modules_func"
-STEPS[3]="all_engine_func"
-STEPS[4]="all_media_func"
+STEPS[3]="all_allmedia_func"
 
 QUIT=0
 
