@@ -30,20 +30,6 @@ static void ngx_rtmp_live_stop(ngx_rtmp_session_t *s);
 
 
 
-#define NGX_RTMP_LIVE_CHECK_TYPE_ALL     0xFF
-#define NGX_RTMP_LIVE_CHECK_TYPE_VIDEO   0x01
-#define NGX_RTMP_LIVE_CHECK_TYPE_AUDIO   0x02
-
-
-static ngx_conf_bitmask_t  ngx_rtmp_live_check_mask[] = {
-    { ngx_string("all"),            NGX_RTMP_LIVE_CHECK_TYPE_ALL   },
-    { ngx_string("video"),          NGX_RTMP_LIVE_CHECK_TYPE_VIDEO },
-    { ngx_string("audio"),          NGX_RTMP_LIVE_CHECK_TYPE_AUDIO },
-    { ngx_null_string,              0                              }
-};
-
-
-
 static ngx_command_t  ngx_rtmp_live_commands[] = {
 
     { ngx_string("live"),
@@ -123,22 +109,6 @@ static ngx_command_t  ngx_rtmp_live_commands[] = {
       offsetof(ngx_rtmp_live_app_conf_t, idle_timeout),
       NULL },
 
-    /* begin add by H.Kernel for rtmp live stream check */
-    { ngx_string("check_live"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
-      ngx_conf_set_bitmask_slot,
-      NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_live_app_conf_t, check_type),
-      ngx_rtmp_live_check_mask },
-
-    { ngx_string("check_live_timeout"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_rtmp_live_set_msec_slot,
-      NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_live_app_conf_t, check_timeout),
-      NULL },
-    /* end add by H.Kernel for rtmp live stream check */
-
       ngx_null_command
 };
 
@@ -192,10 +162,6 @@ ngx_rtmp_live_create_app_conf(ngx_conf_t *cf)
     lacf->publish_notify = NGX_CONF_UNSET;
     lacf->play_restart = NGX_CONF_UNSET;
     lacf->idle_streams = NGX_CONF_UNSET;
-    /* begin add by H.Kernel for rtmp live stream check */
-    lacf->check_type = 0;
-    lacf->check_timeout = NGX_CONF_UNSET_MSEC;
-    /* end add by H.Kernel for rtmp live stream check */
 
     return lacf;
 }
@@ -218,10 +184,6 @@ ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->publish_notify, prev->publish_notify, 0);
     ngx_conf_merge_value(conf->play_restart, prev->play_restart, 0);
     ngx_conf_merge_value(conf->idle_streams, prev->idle_streams, 1);
-    /* begin add by H.Kernel for rtmp live stream check */
-    ngx_conf_merge_bitmask_value(conf->check_type, prev->check_type, 0);
-    ngx_conf_merge_msec_value(conf->check_timeout, prev->check_timeout, 10000);
-    /* end add by H.Kernel for rtmp live stream check */
 
     conf->pool = ngx_create_pool(4096, &cf->cycle->new_log);
     if (conf->pool == NULL) {
@@ -398,111 +360,6 @@ ngx_rtmp_live_set_status(ngx_rtmp_session_t *s, ngx_chain_t *control,
     ctx->cs[1].dropped = 0;
 }
 
-/* begin add by H.Kernel for rtmp live stream check */
-static void
-ngx_rtmp_live_check_stream(ngx_event_t *pev)
-{
-    ngx_rtmp_live_app_conf_t   *lacf;
-    ngx_rtmp_live_ctx_t        *ctx;
-    ngx_connection_t           *c;
-    ngx_rtmp_session_t         *s;
-    ngx_event_t                *e;
-
-    c = pev->data;
-    s = c->data;
-
-    lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-
-    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                   "live: check stream type=%ui,timeout=%M", lacf->check_type,lacf->check_timeout);
-
-    if(NULL == ctx->stream) {
-        return;
-    }
-
-    if(NGX_RTMP_LIVE_CHECK_TYPE_VIDEO&lacf->check_type) {
-        if(0 == ctx->stream->bw_in_video.bandwidth) {
-            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
-                  "live: check the stream:[%s] check video bandwidth:%uL bits/s fail",
-                  ctx->stream->name,
-                  ctx->stream->bw_in_video.bandwidth*8);
-            ngx_rtmp_finalize_session(s);
-            return;
-        }
-    }
-    else if(NGX_RTMP_LIVE_CHECK_TYPE_AUDIO&lacf->check_type) {
-        if(0 == ctx->stream->bw_in_audio.bandwidth) {
-            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
-                  "live: check the stream:[%s] check audio bandwidth:%uL bits/s fail",
-                  ctx->stream->name,
-                  ctx->stream->bw_in_audio.bandwidth*8);
-            ngx_rtmp_finalize_session(s);
-            return;
-        }
-    }
-
-    e = &ctx->check_evt;
-
-    e->data = s->connection;
-    e->log = s->connection->log;
-    e->handler = ngx_rtmp_live_check_stream;
-
-    ngx_add_timer(e, lacf->check_timeout);
-}
-
-static void
-ngx_rtmp_live_start_check(ngx_rtmp_session_t *s)
-{
-    ngx_rtmp_live_app_conf_t   *lacf;
-    ngx_rtmp_live_ctx_t        *ctx;
-    ngx_event_t                *e;
-
-    lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-
-    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "live: start check stream type=%ui,timeout=%M", lacf->check_type,lacf->check_timeout);
-
-    if (lacf->check_type&&lacf->check_timeout) {
-        e = &ctx->check_evt;
-
-        if ((ctx->stream->active)&&(!ctx->check_evt.timer_set)) {
-            e->data = s->connection;
-            e->log = s->connection->log;
-            e->handler = ngx_rtmp_live_check_stream;
-
-            ngx_add_timer(e, lacf->check_timeout);
-        }
-    }
-}
-static void
-ngx_rtmp_live_stop_check(ngx_rtmp_session_t *s)
-{
-    ngx_rtmp_live_app_conf_t   *lacf;
-    ngx_rtmp_live_ctx_t        *ctx;
-    ngx_event_t                *e;
-
-    lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-
-    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "live: stop check stream type=%ui,timeout=%M", lacf->check_type,lacf->check_timeout);
-
-    if (lacf->check_type&&lacf->check_timeout) {
-        e = &ctx->check_evt;
-
-        if (ctx->check_evt.timer_set) {
-            ngx_del_timer(e);
-        }
-    }
-}
-
-/* end add by H.Kernel for rtmp live stream check */
-
 static void
 ngx_rtmp_live_start(ngx_rtmp_session_t *s)
 {
@@ -542,11 +399,6 @@ ngx_rtmp_live_start(ngx_rtmp_session_t *s)
         ngx_rtmp_free_shared_chain(cscf, status[n]);
     }
 
-    /* begin add by H.Kernel for rtmp live stream check */
-    if(lacf->check_type) {
-        ngx_rtmp_live_start_check(s);
-    }
-    /* end add by H.Kernel for rtmp live stream check */
 }
 
 
@@ -577,12 +429,6 @@ ngx_rtmp_live_stop(ngx_rtmp_session_t *s)
                                                "NetStream.Play.UnpublishNotify",
                                                "status", "Stop publishing");
     }
-
-    /* begin add by H.Kernel for rtmp live stream check */
-    if(lacf->check_type) {
-        ngx_rtmp_live_stop_check(s);
-    }
-    /* end add by H.Kernel for rtmp live stream check */
 
     ngx_rtmp_live_set_status(s, control, status, nstatus, 0);
 
