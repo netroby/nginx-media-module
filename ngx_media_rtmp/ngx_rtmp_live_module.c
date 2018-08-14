@@ -578,6 +578,12 @@ ngx_rtmp_live_stop(ngx_rtmp_session_t *s)
                                                "status", "Stop publishing");
     }
 
+    /* begin add by H.Kernel for rtmp live stream check */
+    if(lacf->check_type) {
+        ngx_rtmp_live_stop_check(s);
+    }
+    /* end add by H.Kernel for rtmp live stream check */
+
     ngx_rtmp_live_set_status(s, control, status, nstatus, 0);
 
     if (control) {
@@ -587,11 +593,7 @@ ngx_rtmp_live_stop(ngx_rtmp_session_t *s)
     for (n = 0; n < nstatus; ++n) {
         ngx_rtmp_free_shared_chain(cscf, status[n]);
     }
-    /* begin add by H.Kernel for rtmp live stream check */
-    if(lacf->check_type) {
-        ngx_rtmp_live_stop_check(s);
-    }
-    /* end add by H.Kernel for rtmp live stream check */
+
 }
 
 
