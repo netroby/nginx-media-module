@@ -469,7 +469,7 @@ ngx_rtmp_live_start_check(ngx_rtmp_session_t *s)
     if (lacf->check_type&&lacf->check_timeout) {
         e = &ctx->check_evt;
 
-        if ((ctx->stream->active)&&(!ctx->idle_evt.timer_set)) {
+        if ((ctx->stream->active)&&(!ctx->check_evt.timer_set)) {
             e->data = s->connection;
             e->log = s->connection->log;
             e->handler = ngx_rtmp_live_check_stream;
@@ -495,7 +495,7 @@ ngx_rtmp_live_stop_check(ngx_rtmp_session_t *s)
     if (lacf->check_type&&lacf->check_timeout) {
         e = &ctx->check_evt;
 
-        if (ctx->idle_evt.timer_set) {
+        if (ctx->check_evt.timer_set) {
             ngx_del_timer(e);
         }
     }
