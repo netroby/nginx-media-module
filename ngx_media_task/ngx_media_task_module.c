@@ -570,7 +570,7 @@ ngx_media_task_destory_task(ngx_media_task_t* task)
         tmptask = tmptask->next_task;
     }
 
-    ngx_log_error(NGX_LOG_INFO, task->log, 0,
+    ngx_log_error(NGX_LOG_INFO, video_task_ctx.log, 0,
                           "ngx http video task destory the task current count:%d .",video_task_ctx.task_count);
 
     if (ngx_thread_mutex_unlock(&video_task_ctx.task_thread_mtx, video_task_ctx.log) != NGX_OK) {
