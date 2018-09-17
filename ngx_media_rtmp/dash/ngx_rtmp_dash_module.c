@@ -252,6 +252,7 @@ ngx_rtmp_dash_write_playlist(ngx_rtmp_session_t *s)
         return NGX_ERROR;
     }
 
+
 #define NGX_RTMP_DASH_MANIFEST_HEADER                                          \
     "<?xml version=\"1.0\"?>\n"                                                \
     "<MPD\n"                                                                   \
@@ -356,13 +357,8 @@ ngx_rtmp_dash_write_playlist(ngx_rtmp_session_t *s)
                      start_time,
                      pub_time,
                      (ngx_uint_t) (dacf->fraglen / 1000),
-                     (ngx_uint_t) (dacf->fraglen / 1000),
-                     (ngx_uint_t) (dacf->fraglen / 250 + 1));
-
-    /*
-     * timeShiftBufferDepth formula:
-     *     2 * minBufferTime + max_fragment_length + 1
-     */
+                     (ngx_uint_t) (dacf->fraglen / 500),
+                     (ngx_uint_t) (dacf->playlen / 1000));
 
     n = ngx_write_fd(fd, buffer, p - buffer);
 
@@ -601,12 +597,12 @@ ngx_rtmp_dash_close_fragment(ngx_rtmp_session_t *s, ngx_rtmp_dash_track_t *t)
     while (left > 0) {
 
         n = ngx_read_fd(t->fd, buffer, ngx_min(sizeof(buffer), left));
-        if (n == NGX_ERROR) {
+        if (n == 0 || n == NGX_ERROR) {
             break;
         }
 
         n = ngx_write_fd(fd, buffer, (size_t) n);
-        if (n == NGX_ERROR) {
+        if (n == 0 || n == NGX_ERROR) {
             break;
         }
 
@@ -997,11 +993,6 @@ ngx_rtmp_dash_update_fragments(ngx_rtmp_session_t *s, ngx_int_t boundary,
 
         f->duration = timestamp - f->timestamp;
         hit = (f->duration >= dacf->fraglen);
-
-        /* keep fragment lengths within 2x factor for dash.js  */
-        if (f->duration >= dacf->fraglen * 2) {
-            boundary = 1;
-        }
 
     } else {
 

@@ -35,6 +35,7 @@ typedef struct {
 typedef struct ngx_rtmp_relay_ctx_s ngx_rtmp_relay_ctx_t;
 
 struct ngx_rtmp_relay_ctx_s {
+    ngx_str_t                       server_name;
     ngx_str_t                       name;
     ngx_str_t                       url;
     ngx_log_t                       log;
@@ -58,6 +59,21 @@ struct ngx_rtmp_relay_ctx_s {
     void                           *tag;
     void                           *data;
 };
+
+
+typedef struct {
+    ngx_array_t                 pulls;         /* ngx_rtmp_relay_target_t * */
+    ngx_array_t                 pushes;        /* ngx_rtmp_relay_target_t * */
+    ngx_array_t                 static_pulls;  /* ngx_rtmp_relay_target_t * */
+    ngx_array_t                 static_events; /* ngx_event_t * */
+    ngx_log_t                  *log;
+    ngx_uint_t                  nbuckets;
+    ngx_msec_t                  buflen;
+    ngx_flag_t                  session_relay;
+    ngx_msec_t                  push_reconnect;
+    ngx_msec_t                  pull_reconnect;
+    ngx_rtmp_relay_ctx_t        **ctx;
+} ngx_rtmp_relay_app_conf_t;
 
 
 extern ngx_module_t                 ngx_rtmp_relay_module;

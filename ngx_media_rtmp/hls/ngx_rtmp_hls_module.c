@@ -489,6 +489,7 @@ ngx_rtmp_hls_write_variant_playlist(ngx_rtmp_session_t *s)
         p = buffer;
         last = buffer + sizeof(buffer);
 
+        /* TODO: PROGRAM-ID was removed in protocol version 6 */
         p = ngx_slprintf(p, last, "#EXT-X-STREAM-INF:PROGRAM-ID=1");
 
         arg = var->args.elts;
@@ -670,7 +671,7 @@ ngx_rtmp_hls_write_playlist(ngx_rtmp_session_t *s)
 }
 
 
-static ngx_int_t
+ngx_int_t
 ngx_rtmp_hls_copy(ngx_rtmp_session_t *s, void *dst, u_char **src, size_t n,
     ngx_chain_t **in)
 {
@@ -1426,7 +1427,7 @@ ngx_rtmp_hls_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     ngx_memcpy(ctx->stream.data, ctx->playlist.data, ctx->stream.len - 1);
     ctx->stream.data[ctx->stream.len - 1] = (hacf->nested ? '/' : '-');
 
-    /* varint playlist path */
+    /* variant playlist path */
 
     if (hacf->variant) {
         var = hacf->variant->elts;
@@ -1992,7 +1993,7 @@ ngx_rtmp_hls_video(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                        "hls: h264 NAL type=%ui, len=%uD",
                        (ngx_uint_t) nal_type, len);
 
-        if (nal_type >= 7 && nal_type <= 9) {
+        if (nal_type >= NGX_RTMP_NALU_SPS && nal_type <= NGX_RTMP_NALU_AUD) {
             if (ngx_rtmp_hls_copy(s, NULL, &p, len - 1, &in) != NGX_OK) {
                 return NGX_ERROR;
             }
@@ -2001,24 +2002,27 @@ ngx_rtmp_hls_video(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         if (!aud_sent) {
             switch (nal_type) {
-                case 1:
-                case 5:
-                case 6:
+                case NGX_RTMP_NALU_SLICE:
+                case NGX_RTMP_NALU_IDR:
+                case NGX_RTMP_NALU_SEI:
                     if (ngx_rtmp_hls_append_aud(s, &out) != NGX_OK) {
                         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                                       "hls: error appending AUD NAL");
                     }
-                case 9:
+
+                    /* fall through */
+
+                case NGX_RTMP_NALU_AUD:
                     aud_sent = 1;
                     break;
             }
         }
 
         switch (nal_type) {
-            case 1:
+            case NGX_RTMP_NALU_SLICE:
                 sps_pps_sent = 0;
                 break;
-            case 5:
+            case NGX_RTMP_NALU_IDR:
                 if (sps_pps_sent) {
                     break;
                 }
@@ -2071,7 +2075,7 @@ ngx_rtmp_hls_video(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     frame.pts = frame.dts + cts * 90;
     frame.pid = 0x100;
     frame.sid = 0xe0;
-    frame.key = (ftype == 1);
+    frame.key = (ftype == NGX_RTMP_FRAME_IDR);
 
     /*
      * start new fragment if

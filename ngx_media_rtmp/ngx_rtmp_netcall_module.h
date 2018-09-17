@@ -13,13 +13,8 @@
 #include "ngx_rtmp.h"
 
 
-#define NGX_RTMP_NETCALL_CONTENT_TYPE_STANDARD     0
-#define NGX_RTMP_NETCALL_CONTENT_TYPE_XML          1
-
-
-
 typedef ngx_chain_t * (*ngx_rtmp_netcall_create_pt)(ngx_rtmp_session_t *s,
-        void *arg, ngx_pool_t *pool,ngx_uint_t type);
+        void *arg, ngx_pool_t *pool);
 typedef ngx_int_t (*ngx_rtmp_netcall_filter_pt)(ngx_chain_t *in);
 typedef ngx_int_t (*ngx_rtmp_netcall_sink_pt)(ngx_rtmp_session_t *s,
         ngx_chain_t *in);

@@ -1,14 +1,17 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_http.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_amf.h"
 #include "ngx_rtmp_streams.h"
+#include "ngx_rtmp_cmd_module.h"
 
 
 #define NGX_RTMP_USER_START(s, tp)                                          \
@@ -51,6 +54,7 @@ static ngx_int_t
 ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
 {
     ngx_rtmp_core_srv_conf_t       *cscf;
+    ngx_http_request_t             *r;
     ngx_int_t                       rc;
 
     if (cl == NULL) {
@@ -58,6 +62,16 @@ ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
     }
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    if (!s->relay) {
+        /* rquest from http */
+        r = s->data;
+        if (r) {
+            ngx_rtmp_free_shared_chain(cscf, cl);
+
+            return NGX_OK;
+        }
+    }
 
     rc = ngx_rtmp_send_message(s, cl, 0);
 
@@ -100,7 +114,7 @@ ngx_rtmp_create_abort(ngx_rtmp_session_t *s, uint32_t csid)
                    "create: abort csid=%uD", csid);
 
     {
-        NGX_RTMP_USER_START(s, NGX_RTMP_MSG_CHUNK_SIZE);
+        NGX_RTMP_USER_START(s, NGX_RTMP_MSG_ABORT);
 
         NGX_RTMP_USER_OUT4(csid);
 
@@ -591,6 +605,138 @@ ngx_rtmp_send_play_status(ngx_rtmp_session_t *s, char *code, char* level,
 {
     return ngx_rtmp_send_shared_packet(s,
            ngx_rtmp_create_play_status(s, code, level, duration, bytes));
+}
+
+
+ngx_chain_t *
+ngx_rtmp_create_fcpublish(ngx_rtmp_session_t *s, u_char *desc)
+{
+    ngx_rtmp_header_t               h;
+    static double                   trans;
+
+    static ngx_rtmp_amf_elt_t       out_inf[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("level"),
+          "status", 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("code"),
+          "NetStream.Publish.Start", 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("description"),
+          NULL, 0 },
+    };
+
+    static ngx_rtmp_amf_elt_t       out_elts[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_null_string,
+          "onFCPublish", 0 },
+
+        { NGX_RTMP_AMF_NUMBER,
+          ngx_null_string,
+          &trans, 0 },
+
+        { NGX_RTMP_AMF_NULL,
+          ngx_null_string,
+          NULL, 0 },
+
+        { NGX_RTMP_AMF_OBJECT,
+          ngx_null_string,
+          out_inf,
+          sizeof(out_inf) },
+    };
+
+    ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+                   "create: fcpublish - set structure data");
+
+    out_inf[2].data = desc;
+    trans = 0;
+
+    memset(&h, 0, sizeof(h));
+
+    h.type = NGX_RTMP_MSG_AMF_CMD;
+    h.csid = NGX_RTMP_CSID_AMF;
+    h.msid = NGX_RTMP_MSID;
+
+    return ngx_rtmp_create_amf(s, &h, out_elts,
+                               sizeof(out_elts) / sizeof(out_elts[0]));
+}
+
+
+ngx_int_t
+ngx_rtmp_send_fcpublish(ngx_rtmp_session_t *s, u_char *desc)
+{
+    return ngx_rtmp_send_shared_packet(s,
+           ngx_rtmp_create_fcpublish(s, desc));
+}
+
+
+ngx_chain_t *
+ngx_rtmp_create_fcunpublish(ngx_rtmp_session_t *s, u_char *desc)
+{
+    ngx_rtmp_header_t               h;
+    static double                   trans;
+
+    static ngx_rtmp_amf_elt_t       out_inf[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("level"),
+          "status", 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("code"),
+          "NetStream.Unpublish.Success", 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("description"),
+          NULL, 0 },
+    };
+
+    static ngx_rtmp_amf_elt_t       out_elts[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_null_string,
+          "onFCUnpublish", 0 },
+
+        { NGX_RTMP_AMF_NUMBER,
+          ngx_null_string,
+          &trans, 0 },
+
+        { NGX_RTMP_AMF_NULL,
+          ngx_null_string,
+          NULL, 0 },
+
+        { NGX_RTMP_AMF_OBJECT,
+          ngx_null_string,
+          out_inf,
+          sizeof(out_inf) },
+    };
+
+    ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+                   "create: fcunpublish - set structure data");
+
+    out_inf[2].data = desc;
+    trans = 0;
+
+    memset(&h, 0, sizeof(h));
+
+    h.type = NGX_RTMP_MSG_AMF_CMD;
+    h.csid = NGX_RTMP_CSID_AMF;
+    h.msid = NGX_RTMP_MSID;
+
+    return ngx_rtmp_create_amf(s, &h, out_elts,
+                               sizeof(out_elts) / sizeof(out_elts[0]));
+}
+
+
+ngx_int_t
+ngx_rtmp_send_fcunpublish(ngx_rtmp_session_t *s, u_char *desc)
+{
+    return ngx_rtmp_send_shared_packet(s,
+           ngx_rtmp_create_fcunpublish(s, desc));
 }
 
 

@@ -133,7 +133,7 @@ ngx_rtmp_limit_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     rc = n > (ngx_uint_t) lmcf->max_conn ? NGX_ERROR : NGX_OK;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "limit: inc conection counter: %uD", n);
+                   "limit: inc connection counter: %uD", n);
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
@@ -177,7 +177,7 @@ ngx_rtmp_limit_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_media_license_rtmp_count(n);
     /* end:add by H.Kernel for license control */
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "limit: dec conection counter: %uD", n);
+                   "limit: dec connection counter: %uD", n);
 
     return NGX_OK;
 }

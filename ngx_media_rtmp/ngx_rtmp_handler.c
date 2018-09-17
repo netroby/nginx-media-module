@@ -1,6 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Roman Arutyunyan 
+ * Copyright (C) Winshining 
  */
 
 
@@ -8,12 +9,12 @@
 #include <ngx_core.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_amf.h"
+#include "ngx_rtmp_cmd_module.h"
 
 
 static void ngx_rtmp_recv(ngx_event_t *rev);
 static void ngx_rtmp_send(ngx_event_t *rev);
 static void ngx_rtmp_ping(ngx_event_t *rev);
-static ngx_int_t ngx_rtmp_finalize_set_chunk_size(ngx_rtmp_session_t *s);
 
 
 ngx_uint_t                  ngx_rtmp_naccepted;
@@ -86,6 +87,7 @@ ngx_rtmp_cycle(ngx_rtmp_session_t *s)
     ngx_connection_t           *c;
 
     c = s->connection;
+
     c->read->handler =  ngx_rtmp_recv;
     c->write->handler = ngx_rtmp_send;
 
@@ -98,7 +100,7 @@ ngx_rtmp_cycle(ngx_rtmp_session_t *s)
 }
 
 
-static ngx_chain_t *
+ngx_chain_t *
 ngx_rtmp_alloc_in_buf(ngx_rtmp_session_t *s)
 {
     ngx_chain_t        *cl;
@@ -430,7 +432,8 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
             if (h->mlen > cscf->max_message) {
                 ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "too big message: %uz", cscf->max_message);
+                        "too big message: %uz, %uz",
+                                h->mlen, cscf->max_message);
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -464,6 +467,14 @@ ngx_rtmp_recv(ngx_event_t *rev)
             if (ngx_rtmp_receive_message(s, h, head) != NGX_OK) {
                 ngx_rtmp_finalize_session(s);
                 return;
+            }
+
+            /* server configuration may change due to virtual server match */
+            if (s->server_changed) {
+                cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+                st = &s->in_streams[s->in_csid];
+
+                s->server_changed = 0;
             }
 
             if (s->in_chunk_size_changing) {
@@ -712,7 +723,7 @@ ngx_rtmp_send_message(ngx_rtmp_session_t *s, ngx_chain_t *out,
 {
     ngx_uint_t                      nmsg;
 
-    nmsg = (s->out_last - s->out_pos) % s->out_queue + 1;
+    nmsg = (s->out_last + s->out_queue - s->out_pos) % s->out_queue + 1;
 
     if (priority > 3) {
         priority = 3;
@@ -724,6 +735,7 @@ ngx_rtmp_send_message(ngx_rtmp_session_t *s, ngx_chain_t *out,
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "RTMP drop message bufs=%ui, priority=%ui",
                 nmsg, priority);
+
         return NGX_AGAIN;
     }
 
@@ -887,7 +899,7 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
 }
 
 
-static ngx_int_t
+ngx_int_t
 ngx_rtmp_finalize_set_chunk_size(ngx_rtmp_session_t *s)
 {
     if (s->in_chunk_size_changing && s->in_old_pool) {

@@ -24,7 +24,6 @@ static void ngx_rtmp_netcall_send(ngx_event_t *wev);
 typedef struct {
     ngx_msec_t                                  timeout;
     size_t                                      bufsize;
-    ngx_uint_t                                  type;
     ngx_log_t                                  *log;
 } ngx_rtmp_netcall_srv_conf_t;
 
@@ -52,13 +51,6 @@ typedef struct {
 } ngx_rtmp_netcall_ctx_t;
 
 
-static ngx_conf_enum_t                  ngx_rtmp_netcall_type_slots[] = {
-    { ngx_string("standard"),         NGX_RTMP_NETCALL_CONTENT_TYPE_STANDARD },
-    { ngx_string("xml"),              NGX_RTMP_NETCALL_CONTENT_TYPE_XML  },
-    { ngx_null_string,                  0 }
-};
-
-
 static ngx_command_t  ngx_rtmp_netcall_commands[] = {
 
     { ngx_string("netcall_timeout"),
@@ -74,13 +66,6 @@ static ngx_command_t  ngx_rtmp_netcall_commands[] = {
       NGX_RTMP_SRV_CONF_OFFSET,
       offsetof(ngx_rtmp_netcall_srv_conf_t, bufsize),
       NULL },
-
-    { ngx_string("netcall_type"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_enum_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_netcall_srv_conf_t, type),
-      &ngx_rtmp_netcall_type_slots },
 
       ngx_null_command
 };
@@ -126,7 +111,6 @@ ngx_rtmp_netcall_create_srv_conf(ngx_conf_t *cf)
 
     nscf->timeout = NGX_CONF_UNSET_MSEC;
     nscf->bufsize = NGX_CONF_UNSET_SIZE;
-    nscf->type    = NGX_CONF_UNSET_UINT;
 
     nscf->log = &cf->cycle->new_log;
 
@@ -142,7 +126,6 @@ ngx_rtmp_netcall_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->timeout, prev->timeout, 10000);
     ngx_conf_merge_size_value(conf->bufsize, prev->bufsize, 1024);
-    ngx_conf_merge_uint_value(conf->type, prev->type, NGX_RTMP_NETCALL_CONTENT_TYPE_STANDARD);
 
     return NGX_CONF_OK;
 }
@@ -197,7 +180,6 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
     ngx_connection_t               *c, *cc;
     ngx_pool_t                     *pool;
     ngx_int_t                       rc;
-    ngx_uint_t                      type;
 
     pool = NULL;
     c = s->connection;
@@ -275,12 +257,7 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
     cc->pool = pool;
     cs->pc = pc;
 
-    type = nscf->type;
-    if(NGX_CONF_UNSET_UINT == type) {
-        type = NGX_RTMP_NETCALL_CONTENT_TYPE_STANDARD;
-    }
-
-    cs->out = ci->create(s, ci->arg, pool,type);
+    cs->out = ci->create(s, ci->arg, pool);
     if (cs->out == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "netcall: creation failed");

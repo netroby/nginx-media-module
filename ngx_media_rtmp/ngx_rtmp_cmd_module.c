@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -148,6 +149,10 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
           ngx_string("pageUrl"),
           v.page_url, sizeof(v.page_url) },
 
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("serverName"),
+          v.server_name, sizeof(v.server_name) },
+
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("objectEncoding"),
           &v.object_encoding, 0},
@@ -171,14 +176,40 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
+#define NGX_RTMP_SET_STRPAR(name)                                             \
+    s->name.len = ngx_strlen(v.name);                                         \
+    s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \
+    ngx_memcpy(s->name.data, v.name, s->name.len)
+
+    NGX_RTMP_SET_STRPAR(app);
+    NGX_RTMP_SET_STRPAR(args);
+    NGX_RTMP_SET_STRPAR(flashver);
+    NGX_RTMP_SET_STRPAR(swf_url);
+    NGX_RTMP_SET_STRPAR(tc_url);
+    NGX_RTMP_SET_STRPAR(page_url);
+
+#undef NGX_RTMP_SET_STRPAR
+
+    if (s->auto_pushed) {
+        s->host_start = v.server_name;
+        s->host_end = v.server_name + ngx_strlen(v.server_name);
+    }
+
+    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "connect: failed to process virtual host");
+
+        return NGX_ERROR;
+    }
+
+    ngx_rtmp_cmd_fill_args(v.app, v.args);
+
     len = ngx_strlen(v.app);
     if (len > 10 && !ngx_memcmp(v.app + len - 10, "/_definst_", 10)) {
         v.app[len - 10] = 0;
     } else if (len && v.app[len - 1] == '/') {
         v.app[len - 1] = 0;
     }
-
-    ngx_rtmp_cmd_fill_args(v.app, v.args);
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
             "connect: app='%s' args='%s' flashver='%s' swf_url='%s' "
@@ -273,9 +304,15 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
 
 #define NGX_RTMP_SET_STRPAR(name)                                             \
-    s->name.len = ngx_strlen(v->name);                                        \
-    s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \
-    ngx_memcpy(s->name.data, v->name, s->name.len)
+    do {                                                                      \
+        if (s->name.len != ngx_strlen(v->name)                                \
+            || ngx_strncasecmp(s->name.data, v->name, s->name.len))           \
+        {                                                                     \
+            s->name.len = ngx_strlen(v->name);                                \
+            s->name.data = ngx_palloc(s->connection->pool, s->name.len);      \
+            ngx_memcpy(s->name.data, v->name, s->name.len);                   \
+        }                                                                     \
+    } while (0)
 
     NGX_RTMP_SET_STRPAR(app);
     NGX_RTMP_SET_STRPAR(args);
@@ -302,6 +339,7 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         {
             /* found app! */
             s->app_conf = (*cacfp)->app_conf;
+            s->valid_application = 1;
             break;
         }
     }
@@ -313,6 +351,10 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     }
 
     object_encoding = v->object_encoding;
+
+    if (s->wait_notify_connect) {
+        s->wait_notify_connect = 0;
+    }
 
     return ngx_rtmp_send_ack_size(s, cscf->ack_window) != NGX_OK ||
            ngx_rtmp_send_bandwidth(s, cscf->ack_window,
@@ -502,6 +544,12 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_rtmp_cmd_fill_args(v.name, v.args);
 
+    if (ngx_rtmp_process_request_line(s, v.name, v.args,
+            (const u_char *) "publish") != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                   "publish: name='%s' args='%s' type=%s silent=%d",
                   v.name, v.args, v.type, v.silent);
@@ -559,6 +607,12 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     ngx_rtmp_cmd_fill_args(v.name, v.args);
+
+    if (ngx_rtmp_process_request_line(s, v.name, v.args,
+            (const u_char *) "play") != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                   "play: name='%s' args='%s' start=%i duration=%i "
@@ -854,3 +908,4 @@ ngx_rtmp_cmd_postconfiguration(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+

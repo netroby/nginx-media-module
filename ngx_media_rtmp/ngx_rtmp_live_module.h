@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -40,6 +41,7 @@ struct ngx_rtmp_live_ctx_s {
     unsigned                            publishing:1;
     unsigned                            silent:1;
     unsigned                            paused:1;
+    ngx_uint_t                          protocol;
 };
 
 
@@ -47,9 +49,11 @@ struct ngx_rtmp_live_stream_s {
     u_char                              name[NGX_RTMP_MAX_NAME];
     ngx_rtmp_live_stream_t             *next;
     ngx_rtmp_live_ctx_t                *ctx;
+    ngx_rtmp_live_ctx_t                *pub_ctx;
     ngx_rtmp_bandwidth_t                bw_in;
     ngx_rtmp_bandwidth_t                bw_in_audio;
     ngx_rtmp_bandwidth_t                bw_in_video;
+    ngx_rtmp_bandwidth_t                bw_in_data;
     ngx_rtmp_bandwidth_t                bw_out;
     ngx_msec_t                          epoch;
     unsigned                            active:1;
@@ -78,6 +82,10 @@ typedef struct {
 
 
 extern ngx_module_t  ngx_rtmp_live_module;
+
+
+ngx_rtmp_live_stream_t **ngx_rtmp_live_get_stream(ngx_rtmp_session_t *s,
+    u_char *name, int create);
 
 
 #endif /* _NGX_RTMP_LIVE_H_INCLUDED_ */

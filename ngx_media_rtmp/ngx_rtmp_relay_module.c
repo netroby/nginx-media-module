@@ -1,6 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Roman Arutyunyan 
+ * Copyright (C) Winshining 
  */
 
 
@@ -45,28 +46,15 @@ static ngx_rtmp_relay_ctx_t * ngx_rtmp_relay_create_connection(
 
 
 typedef struct {
-    ngx_array_t                 pulls;         /* ngx_rtmp_relay_target_t * */
-    ngx_array_t                 pushes;        /* ngx_rtmp_relay_target_t * */
-    ngx_array_t                 static_pulls;  /* ngx_rtmp_relay_target_t * */
-    ngx_array_t                 static_events; /* ngx_event_t * */
-    ngx_log_t                  *log;
-    ngx_uint_t                  nbuckets;
-    ngx_msec_t                  buflen;
-    ngx_flag_t                  session_relay;
-    ngx_msec_t                  push_reconnect;
-    ngx_msec_t                  pull_reconnect;
-    ngx_rtmp_relay_ctx_t        **ctx;
-} ngx_rtmp_relay_app_conf_t;
-
-
-typedef struct {
     ngx_rtmp_conf_ctx_t         cctx;
     ngx_rtmp_relay_target_t    *target;
 } ngx_rtmp_relay_static_t;
 
 
 #define NGX_RTMP_RELAY_CONNECT_TRANS            1
-#define NGX_RTMP_RELAY_CREATE_STREAM_TRANS      2
+#define NGX_RTMP_RELAY_RELEASE_STREAM_TRANS     2
+#define NGX_RTMP_RELAY_FCPUBLISH_STREAM_TRANS   3
+#define NGX_RTMP_RELAY_CREATE_STREAM_TRANS      4
 
 
 #define NGX_RTMP_RELAY_CSID_AMF_INI             3
@@ -350,6 +338,9 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t* name,
     ngx_int_t                       rc;
     ngx_str_t                       v, *uri;
     u_char                         *first, *last, *p;
+#if (NGX_HAVE_UNIX_DOMAIN)
+    u_char                         *client;
+#endif
 
     racf = ngx_rtmp_get_module_app_conf(cctx, ngx_rtmp_relay_module);
 
@@ -474,17 +465,43 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t* name,
     }
     c = pc->connection;
     c->pool = pool;
-    c->addr_text = rctx->url;
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    if (addr->sockaddr->sa_family == AF_UNIX) {
+        client = ngx_pcalloc(pool, rctx->url.len + 8);
+        if (client == NULL) {
+            goto clear;
+        }
+
+        *ngx_cpymem(client, rctx->url.data,
+                    ngx_strlen(rctx->url.data)) = 0;
+
+        p = (u_char *) ngx_strchr(client, '.');
+        *ngx_snprintf(p + 1, client + rctx->url.len + 8 - (p + 1), "%i",
+                      ngx_process_slot) = 0;
+
+        c->addr_text.data = client;
+        c->addr_text.len = ngx_strlen(client);
+    }
+#endif
 
     addr_conf = ngx_pcalloc(pool, sizeof(ngx_rtmp_addr_conf_t));
     if (addr_conf == NULL) {
         goto clear;
     }
+
+    addr_conf->default_server = ngx_pcalloc(pool,
+                                            sizeof(ngx_rtmp_core_srv_conf_t));
+    if (addr_conf->default_server == NULL) {
+        goto clear;
+    }
+
     addr_ctx = ngx_pcalloc(pool, sizeof(ngx_rtmp_conf_ctx_t));
     if (addr_ctx == NULL) {
         goto clear;
     }
-    addr_conf->ctx = addr_ctx;
+
+    addr_conf->default_server->ctx = addr_ctx;
     addr_ctx->main_conf = cctx->main_conf;
     addr_ctx->srv_conf  = cctx->srv_conf;
     ngx_str_set(&addr_conf->addr_text, "ngx-relay");
@@ -520,12 +537,19 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t* name,
         ngx_rtmp_relay_target_t *target)
 {
     ngx_rtmp_conf_ctx_t         cctx;
+    ngx_rtmp_relay_ctx_t       *rctx;
 
     cctx.app_conf = s->app_conf;
     cctx.srv_conf = s->srv_conf;
     cctx.main_conf = s->main_conf;
 
-    return ngx_rtmp_relay_create_connection(&cctx, name, target);
+    rctx = ngx_rtmp_relay_create_connection(&cctx, name, target);
+    if (rctx) {
+        rctx->server_name.data = s->host_start;
+        rctx->server_name.len = s->host_end - s->host_start;
+    }
+
+    return rctx;
 }
 
 
@@ -821,6 +845,10 @@ ngx_rtmp_relay_send_connect(ngx_rtmp_session_t *s)
           ngx_string("flashVer"),
           NULL, 0 }, /* <-- fill */
 
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("serverName"),
+          NULL, 0 }, /* <-- fill */
+
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("audioCodecs"),
           &acodecs, 0 },
@@ -912,6 +940,10 @@ ngx_rtmp_relay_send_connect(ngx_rtmp_session_t *s)
         out_cmd[4].len  = sizeof(NGX_RTMP_RELAY_FLASHVER) - 1;
     }
 
+    /* used in ngx_rtmp_set_virtual_server when auto_pushed */
+    out_cmd[5].data = ctx->server_name.data;
+    out_cmd[5].len = ctx->server_name.len;
+
     ngx_memzero(&h, sizeof(h));
     h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
     h.type = NGX_RTMP_MSG_AMF_CMD;
@@ -923,6 +955,106 @@ ngx_rtmp_relay_send_connect(ngx_rtmp_session_t *s)
         ? NGX_ERROR
         : NGX_OK;
 }
+
+
+#if 0
+static ngx_int_t
+ngx_rtmp_relay_send_release_stream(ngx_rtmp_session_t *s)
+{
+    static double               trans = NGX_RTMP_RELAY_RELEASE_STREAM_TRANS;
+
+    static ngx_rtmp_amf_elt_t   out_elts[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_null_string,
+          "releaseStream", 0 },
+
+        { NGX_RTMP_AMF_NUMBER,
+          ngx_null_string,
+          &trans, 0 },
+
+        { NGX_RTMP_AMF_NULL,
+          ngx_null_string,
+          NULL, 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("stream"),
+          NULL, 0 }
+    };
+
+    ngx_rtmp_header_t           h;
+
+    ngx_rtmp_core_app_conf_t   *cacf;
+    ngx_rtmp_relay_ctx_t       *ctx;
+
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_relay_module);
+    if (cacf == NULL || ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (ctx->name.len) {
+        out_elts[3].data = ctx->name.data;
+        out_elts[3].len  = ctx->name.len;
+    } 
+
+    ngx_memzero(&h, sizeof(h));
+    h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
+    h.type = NGX_RTMP_MSG_AMF_CMD;
+
+    return ngx_rtmp_send_amf(s, &h, out_elts,
+            sizeof(out_elts) / sizeof(out_elts[0]));
+}
+
+
+static ngx_int_t
+ngx_rtmp_relay_send_fcpublish(ngx_rtmp_session_t *s)
+{
+    static double               trans = NGX_RTMP_RELAY_FCPUBLISH_STREAM_TRANS;
+
+    static ngx_rtmp_amf_elt_t   out_elts[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_null_string,
+          "FCPublish", 0 },
+
+        { NGX_RTMP_AMF_NUMBER,
+          ngx_null_string,
+          &trans, 0 },
+
+        { NGX_RTMP_AMF_NULL,
+          ngx_null_string,
+          NULL, 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("stream"),
+          NULL, 0 }
+    };
+
+    ngx_rtmp_header_t           h;
+
+    ngx_rtmp_core_app_conf_t   *cacf;
+    ngx_rtmp_relay_ctx_t       *ctx;
+
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_relay_module);
+    if (cacf == NULL || ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (ctx->name.len) {
+        out_elts[3].data = ctx->name.data;
+        out_elts[3].len  = ctx->name.len;
+    } 
+
+    ngx_memzero(&h, sizeof(h));
+    h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
+    h.type = NGX_RTMP_MSG_AMF_CMD;
+
+    return ngx_rtmp_send_amf(s, &h, out_elts,
+            sizeof(out_elts) / sizeof(out_elts[0]));
+}
+#endif
 
 
 static ngx_int_t
@@ -947,10 +1079,18 @@ ngx_rtmp_relay_send_create_stream(ngx_rtmp_session_t *s)
 
     ngx_rtmp_header_t           h;
 
-
     ngx_memzero(&h, sizeof(h));
     h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
     h.type = NGX_RTMP_MSG_AMF_CMD;
+
+#if 0
+    return ngx_rtmp_relay_send_release_stream(s) != NGX_OK
+           || ngx_rtmp_relay_send_fcpublish(s) != NGX_OK 
+           || ngx_rtmp_send_amf(s, &h, out_elts,
+              sizeof(out_elts) / sizeof(out_elts[0])) != NGX_OK
+           ? NGX_ERROR
+           : NGX_OK;
+#endif
 
     return ngx_rtmp_send_amf(s, &h, out_elts,
             sizeof(out_elts) / sizeof(out_elts[0]));
@@ -1604,10 +1744,9 @@ ngx_rtmp_relay_init_process(ngx_cycle_t *cycle)
     ngx_rtmp_relay_app_conf_t  *racf;
     ngx_uint_t                  n, m, k;
     ngx_rtmp_relay_static_t    *rs;
-    ngx_rtmp_listen_t          *lst;
     ngx_event_t               **pevent, *event;
 
-    if (cmcf == NULL || cmcf->listen.nelts == 0) {
+    if (cmcf == NULL || cmcf->servers.nelts == 0) {
         return NGX_OK;
     }
 
@@ -1616,8 +1755,6 @@ ngx_rtmp_relay_init_process(ngx_cycle_t *cycle)
     if (ngx_process_slot) {
         return NGX_OK;
     }
-
-    lst = cmcf->listen.elts;
 
     pcscf = cmcf->servers.elts;
     for (n = 0; n < cmcf->servers.nelts; ++n, ++pcscf) {
@@ -1635,7 +1772,7 @@ ngx_rtmp_relay_init_process(ngx_cycle_t *cycle)
                 event = *pevent;
 
                 rs = event->data;
-                rs->cctx = *lst->ctx;
+                rs->cctx = *cscf->ctx;
                 rs->cctx.app_conf = cacf->app_conf;
 
                 ngx_post_event(event, &ngx_rtmp_init_queue);
