@@ -83,7 +83,7 @@ thumb_grabber_process_init(vod_log_t* log)
 		if (cur_decoder_codec == NULL)
 		{
 			vod_log_error(VOD_LOG_WARN, log, 0,
-				"thumb_grabber_process_init: failed to get %s decoder, thumbnail capture is disabled for this codec",
+				"thumb_grabber_process_init: failed to get %s decoder, thumbnail capture is disabled for this codec", 
 				mapping_cur->name);
 			continue;
 		}
@@ -119,7 +119,7 @@ thumb_grabber_init_decoder(
 	int avrc;
 
 	decoder = avcodec_alloc_context3(decoder_codec[media_info->codec_id]);
-	if (decoder == NULL)
+	if (decoder == NULL) 
 	{
 		vod_log_error(VOD_LOG_ERR, request_context->log, 0,
 			"thumb_grabber_init_decoder: avcodec_alloc_context3 failed");
@@ -215,8 +215,8 @@ thumb_grabber_get_max_frame_size(media_track_t* track, uint32_t limit)
 static vod_status_t
 thumb_grabber_truncate_frames(
 	request_context_t* request_context,
-	media_track_t* track,
-	uint64_t requested_time,
+	media_track_t* track, 
+	uint64_t requested_time, 
 	bool_t accurate,
 	uint32_t* skip_count)
 {
@@ -271,8 +271,8 @@ thumb_grabber_truncate_frames(
 		// find the closest frame
 		pts = dts + cur_frame->pts_delay;
 		cur_diff = (pts >= requested_time) ? (pts - requested_time) : (requested_time - pts);
-		if (cur_diff <= min_diff &&
-			(cur_frame->key_frame ||
+		if (cur_diff <= min_diff && 
+			(cur_frame->key_frame || 
 			(accurate && last_key_frame != NULL)))
 		{
 			min_index = index - last_key_frame_index;
@@ -304,7 +304,7 @@ thumb_grabber_truncate_frames(
 vod_status_t
 thumb_grabber_init_state(
 	request_context_t* request_context,
-	media_track_t* track,
+	media_track_t* track, 
 	request_params_t* request_params,
 	bool_t accurate,
 	write_callback_t write_callback,
@@ -492,7 +492,7 @@ thumb_grabber_decode_flush(thumb_grabber_state_t* state)
 	return VOD_OK;
 }
 
-static vod_status_t
+static vod_status_t 
 thumb_grabber_decode_frame(thumb_grabber_state_t* state, u_char* buffer)
 {
 	input_frame_t* frame = state->cur_frame;
@@ -500,7 +500,7 @@ thumb_grabber_decode_frame(thumb_grabber_state_t* state, u_char* buffer)
 	u_char original_pad[VOD_BUFFER_PADDING_SIZE];
 	u_char* frame_end;
 	int avrc;
-
+	
 	vod_memzero(&input_packet, sizeof(input_packet));
 	input_packet.data = buffer;
 	input_packet.size = frame->size;
@@ -509,7 +509,7 @@ thumb_grabber_decode_frame(thumb_grabber_state_t* state, u_char* buffer)
 	input_packet.duration = frame->duration;
 	input_packet.flags = frame->key_frame ? AV_PKT_FLAG_KEY : 0;
 	state->dts += frame->duration;
-
+	
 	av_frame_unref(state->decoded_frame);
 
 	state->has_frame = 0;
@@ -737,7 +737,7 @@ thumb_grabber_process(void* context)
 			if (state->frame_buffer == NULL)
 			{
 				state->frame_buffer = vod_alloc(
-					state->request_context->pool,
+					state->request_context->pool, 
 					state->max_frame_size + VOD_BUFFER_PADDING_SIZE);
 				if (state->frame_buffer == NULL)
 				{
