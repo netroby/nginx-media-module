@@ -78,6 +78,7 @@ ALLMEDIA_HTTP_MODULES="   ngx_media_task_module                                 
                           ngx_rtmpt_proxy_stat_module                                  \
                           ngx_media_live_module                                        \
                           ngx_http_zmq_module                                          \
+                          ngx_http_ts_module                                           \
                       "  
 
 ALLMEDIA_HTTP_FILTER_MODULES="   
@@ -285,8 +286,13 @@ ALLMEDIA_ADDON_DEPS="$ngx_addon_dir/ngx_media_common/ngx_media_include.h        
                      $ngx_addon_dir/ngx_media_vod/vod/write_stream.h                   \
                      $ngx_addon_dir/ngx_media_vod/ngx_http_vod_thumb.h                 \
                      $ngx_addon_dir/ngx_media_vod/ngx_http_vod_thumb_commands.h        \
-		     $ngx_addon_dir/ngx_media_live/ngx_media_live_module.h             \
+		             $ngx_addon_dir/ngx_media_live/ngx_media_live_module.h             \
                      $ngx_addon_dir/ngx_media_zmq/ngx_zmq_conn_pool.h                  \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_stream.h                       \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_hls.h                          \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_dash.h                         \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_avc.h                          \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_aac.h                          \
                     "
 
 
@@ -312,6 +318,13 @@ ALLMEDIA_HTTP_SRCS=" $ngx_addon_dir/ngx_media_task/ngx_media_task_module.c      
                      $ngx_addon_dir/ngx_media_live/ngx_media_live_module.c             \
                      $ngx_addon_dir/ngx_media_zmq/ngx_zmq_conn_pool.c                  \
                      $ngx_addon_dir/ngx_media_zmq/ngx_http_zmq_module.c                \
+                     $ngx_addon_dir/ngx_media_ts/ngx_http_ts_module.c                  \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_stream.c                       \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_hls.c                          \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_dash.c                         \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_dash_mp4.c                     \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_avc.c                          \
+                     $ngx_addon_dir/ngx_media_ts/ngx_ts_aac.c                          \
                     "
                     
 ALLMEDIA_HTTP_FILTER_SRCS="
