@@ -1161,8 +1161,6 @@ ngx_media_task_deal_arguments(xmlNodePtr curNode,ngx_media_task_t* task,ngx_medi
     xmlNodePtr argNode    = NULL;
     xmlChar*   name       = NULL;
     xmlChar*   value      = NULL;
-    u_char*    param      = NULL;
-    u_char*    last       = NULL;
 
     argNode = curNode->children;
     while(NULL != argNode) {
@@ -1220,7 +1218,7 @@ ngx_media_task_deal_find_variable_param(ngx_media_worker_ctx_t* worker,u_char* n
                  cmpsize = size;
             }
 
-            ngx_log_error(NGX_LOG_DEBUG, task->log,0, "compare the arg,name:[%s],key:[%V] value:[%V]",
+            ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "compare the arg,name:[%s],key:[%V] value:[%V]",
                                          name,&kv->key,&kv->value);
 
 
