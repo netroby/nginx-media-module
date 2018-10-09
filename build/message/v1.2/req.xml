@@ -1,48 +1,49 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <req version="1.0">
-	<task taskid="0123456789" command="start"> <!-- command:start,stop,update -->
-	    <report interval="0" url="http://112.4.10.132:8000/Homegw/vodCallback" />
-		<workers>
-			<worker id="0" type="0" master="1">
-				<input path="rtsp%3a%2f%2f115.28.143.169%3a554%2flive%3fcontentid%3d030001010500000636%3a1%26sessionid%3db4aa98d1cc67f2f26430%26timestamp%3d20150616093131%26timeout%3d30%26encrypt%3df14a8f6b954b519b60808f694e88bf9f">
-					<param name="rtsp_transport"  value="tcp"         />
-				</input>
-				<output path="/home/update/030001010500000802.mp4">
-			        <param name="vcodec"          value="copy"        />				
-				    <param name="t"               value="30"          />
-			    </output>
-				<triggers>
-				    <trigger after="start" worker="1" delay="0" />
-					<trigger after="stop"  worker="2" delay="0" />
-				</triggers>
-			</worker>
-			<worker id="1" type="1" master="0">
-				<input vpath="VIEOPATH">
-					<param name="type"  value="vpath"         />
-				</input>
-				<output vpath="OSS">
-			        <param name="type"          value="oss"        />				
-				    <param name="bucket"        value="30"  />
-					<param name="object"        value="30"  />
-			    </output>
-			</worker>
-			<worker id="2" type="2" master="0">
-				<input path="/home/xxxx/xxxx.mp4">
-					<param name="type"  value="video"         />
-				</input>
-				<input path="/home/xxxx/yyyyy.proto">
-					<param name="type"  value="proto"         />
-				</input>
-				<output path="/home/update/030001010500000802.mp4">
-			        <param name="vcodec"          value="copy"        />				
-				    <param name="t"               value="30"          />
-			    </output>
-				<triggers>
-					<trigger after="stop"  worker="2" delay="0" />
-				</triggers>
-			</worker>
-			
-		</workers>
-    </task>
+  <task taskid="ryb_live_386830678378622612" command="start">
+    <report interval="0" url="http://114.115.137.181:18081/mss/v1/allmedia/vodCallback" />
+    <workers>
+      <worker id="0" type="2" master="1">
+        <params>
+          <param name="mss_addr"       value="http://192.169.182.10:10000/mss/v1/api/media/live"/>
+          <param name="mss_cameraid"   value="33000000000105030103000000000914"/>
+          <param name="mss_type"       value="live"/>
+          <param name="mss_streamtype" value="1"/>
+          <param name="mss_username"   value="heshijie"/>
+          <param name="mss_password"   value="heshijie"/>
+          <param name="stream_loop"    value="-1"/>  
+          <param name="src"            value="/home/allmedia/2009.mp3"/>  
+          <param name="map"            value="0:v"/> 
+          <param name="map"            value="1:a"/> 
+          <param name="vcodec"         value="libx264"/>
+          <param name="profile:v"      value="main"/> 
+          <param name="preset:v"       value="fast"/> 
+          <param name="level"          value="3.1"/>
+          <param name="keyint_min"     value="60"/>
+          <param name="g"              value="60"/>
+          <param name="sc_threshold"   value="0"/>          
+          <param name="maxrate"        value="1500k"/> 
+          <param name="minrate"        value="1000k"/> 
+          <param name="bf"             value="0"/> 
+          <param name="b_strategy"     value="0"/>          
+          <param name="acodec"         value="aac"/>
+          <param name="f"              value="flv"/>
+          <param name="threads"        value="4"/>
+          <param name="dst"            value="rtmp://127.0.0.1:1935/live/ryb_live_386830678378622612"/>
+        </params>
+      </worker>
+      <worker id="0" type="2" master="1">
+        <arguments>
+          <argument name="mss_addr"       value="http://192.169.182.10:10000/mss/v1/api/media/live"/>
+          <argument name="mss_cameraid"   value="33000000000105030103000000000914"/>
+          <argument name="mss_type"       value="live"/>
+          <argument name="mss_streamtype" value="1"/>
+          <argument name="mss_username"   value="heshijie"/>
+          <argument name="mss_password"   value="heshijie"/>
+          <argument name="dst"            value="rtmp://127.0.0.1:1935/live/ryb_live_386830678378622612"/>
+        </arguments>
+        <params include="templet/trans_live.xml" />
+      </worker>
+    </workers>
+  </task>
 </req>
-

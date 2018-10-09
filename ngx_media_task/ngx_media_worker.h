@@ -61,6 +61,7 @@ typedef struct {
     time_t                          updatetime;
     ngx_int_t                       status;
     ngx_int_t                       error_code;
+    ngx_list_t                     *arglist;
     ngx_int_t                       nparamcount;
     u_char**                        paramlist;
     ngx_pool_t                     *pool;

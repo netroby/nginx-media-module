@@ -88,11 +88,14 @@ static void*     ngx_media_task_create_main_conf(ngx_conf_t *cf);
 static void      ngx_media_task_recv_request(ngx_http_request_t *r);
 static void      ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_t* out);
 static void      ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
+static void      ngx_media_task_deal_arguments(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
+static ngx_str_t*ngx_media_task_deal_find_variable_param(ngx_media_worker_ctx_t* worker,u_char* name);
+static u_char*   ngx_media_task_deal_replace_variable_param(ngx_media_worker_ctx_t* worker,u_char* param);
 static void      ngx_media_task_deal_worker_vari_params(ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
 static void      ngx_media_task_deal_task_vari_params(ngx_media_task_t* task);
 static ngx_int_t ngx_media_task_deal_init_workers(ngx_media_task_t* task);
 static void      ngx_media_task_deal_triggers(xmlNodePtr curNode,ngx_str_t* taskid,ngx_media_worker_ctx_t* worker);
-static ngx_int_t ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task);
+static ngx_int_t ngx_media_task_deal_workers(ngx_media_main_conf_t *conf,xmlNodePtr curNode,ngx_media_task_t* task);
 static void      ngx_media_task_destory_workers(ngx_media_task_t* task);
 static int       ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc);
 static int       ngx_media_task_stop_task(ngx_str_t* taskid);
@@ -397,7 +400,7 @@ ngx_media_task_exit_process(ngx_cycle_t *cycle)
 }
 
 static void
-ngx_media_task_copy_global_args(ngx_media_main_conf_t *conf,ngx_media_task_t *task)
+ngx_media_task_copy_global_args(ngx_media_main_conf_t *conf,ngx_media_worker_ctx_t *worker)
 {
     ngx_keyval_t               *kv      = NULL;
     ngx_keyval_t               *task_kv = NULL;
@@ -408,51 +411,51 @@ ngx_media_task_copy_global_args(ngx_media_main_conf_t *conf,ngx_media_task_t *ta
     kv = (ngx_keyval_t*)conf->task_args->elts;
     for(i = 0;i < conf->task_args->nelts;i++) {
 
-        task_kv = ngx_list_push(task->arglist);
+        task_kv = ngx_list_push(worker->arglist);
         if(NULL == task_kv) {
             return;
         }
 
-        task_kv->key.data = ngx_pcalloc(task->pool, kv[i].key.len + 1);
+        task_kv->key.data = ngx_pcalloc(worker->pool, kv[i].key.len + 1);
         task_kv->key.len  = kv[i].key.len;
         last = ngx_cpymem(task_kv->key.data,kv[i].key.data,kv[i].key.len);
         *last = '\0';
 
-        task_kv->value.data= ngx_pcalloc(task->pool, kv[i].value.len + 1);
+        task_kv->value.data= ngx_pcalloc(worker->pool, kv[i].value.len + 1);
         task_kv->value.len  = kv[i].value.len;
         last = ngx_cpymem(task_kv->value.data,kv[i].value.data,kv[i].value.len);
         *last = '\0';
-        ngx_log_error(NGX_LOG_INFO, task->log,0, "copy the global arg,key:[%V] value:[%V]",
+        ngx_log_error(NGX_LOG_INFO, worker->log,0, "copy the global arg,key:[%V] value:[%V]",
                                          &kv[i].key,&kv[i].value);
     }
     return;
 }
 
 static void
-ngx_media_task_push_args(ngx_media_task_t *task,u_char* key,u_char* value)
+ngx_media_task_push_args(ngx_media_worker_ctx_t *worker,u_char* key,u_char* value)
 {
     ngx_keyval_t               *kv      = NULL;
     u_char                     *last    = NULL;
     ngx_uint_t                  size    = 0;
 
-    kv = ngx_list_push(task->arglist);
+    kv = ngx_list_push(worker->arglist);
     if(NULL == kv) {
         return;
     }
 
     size = ngx_strlen(key);
-    kv->key.data = ngx_pcalloc(task->pool, size+ 1);
+    kv->key.data = ngx_pcalloc(worker->pool, size+ 1);
     kv->key.len  = size;
     last = ngx_cpymem(kv->key.data,key,size);
     *last = '\0';
 
     size = ngx_strlen(value);
-    kv->value.data= ngx_pcalloc(task->pool, size + 1);
+    kv->value.data= ngx_pcalloc(worker->pool, size + 1);
     kv->value.len  = size;
     last = ngx_cpymem(kv->value.data,value,size);
     *last = '\0';
 
-    ngx_log_error(NGX_LOG_INFO, task->log,0, "push the arg,key:[%V] value:[%V]",
+    ngx_log_error(NGX_LOG_INFO, worker->log,0, "push the arg,key:[%V] value:[%V]",
                                          &kv->key,&kv->value);
 }
 
@@ -488,7 +491,6 @@ ngx_media_task_create_task(ngx_media_main_conf_t *conf)
         ngx_destroy_pool(pool);
         return NULL;
     }
-    task->arglist     = ngx_list_create(task->pool,TASK_ARGS_MAX,sizeof(ngx_keyval_t));
     task->rep_inter   = 60;
     task->starttime   = time(NULL);
     task->mk_restart  = conf->task_mk_restart;
@@ -503,8 +505,6 @@ ngx_media_task_create_task(ngx_media_main_conf_t *conf)
     task->time_event.handler = ngx_media_task_check_task;
     task->time_event.log = video_task_ctx.log;
     task->time_event.data = task;
-
-    ngx_media_task_copy_global_args(conf,task);
 
     if (ngx_thread_mutex_lock(&video_task_ctx.task_thread_mtx, video_task_ctx.log) != NGX_OK) {
         ngx_destroy_pool(pool);
@@ -1051,17 +1051,66 @@ ngx_media_task_parse_report_url(ngx_media_task_t *task)
     return;
 }
 
+static xmlNodePtr
+ngx_media_task_load_params_templet(xmlDocPtr* doc,u_char* include,ngx_media_worker_ctx_t* worker)
+{
+    xmlDocPtr      templet_doc = NULL;
+    xmlNodePtr     curNode     = NULL;
+    u_char        *templet     = NULL;
+
+    templet = ngx_media_task_deal_replace_variable_param(worker,include);
+
+    /* load the templet xml */
+    xmlKeepBlanksDefault(0);
+    templet_doc = xmlParseFile((char*)templet);
+    if(NULL == templet_doc)
+    {
+        ngx_log_error(NGX_LOG_ERR, worker->log, 0,
+                          "ngx media task deal the templet xml fail.");
+        return NULL;
+    }
+
+    curNode = xmlDocGetRootElement(templet_doc);
+    if (NULL == curNode)
+    {
+        ngx_log_error(NGX_LOG_ERR, worker->log, 0,
+                          "ngx media task get the templet xml root fail.");
+        xmlFreeDoc(templet_doc);
+        return NULL;
+    }
+
+    if (xmlStrcmp(curNode->name, BAD_CAST TASK_XML_PARAMS))
+    {
+        ngx_log_error(NGX_LOG_ERR, worker->log, 0,
+                          "ngx media task find the templet xml params node fail.");
+        xmlFreeDoc(templet_doc);
+        return NULL;
+    }
+    *doc = templet_doc;
+    return curNode;
+
+}
 
 static void
 ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker)
 {
-    xmlNodePtr paramNode  = NULL;
-    xmlChar*   name       = NULL;
-    xmlChar*   value      = NULL;
-    u_char*    param      = NULL;
-    u_char*    last       = NULL;
+    xmlNodePtr paramNode   = NULL;
+    xmlDocPtr  templet_doc = NULL;
+    xmlChar*   name        = NULL;
+    xmlChar*   value       = NULL;
+    xmlChar*   include     = NULL;
+    u_char*    param       = NULL;
+    u_char*    last        = NULL;
 
-    paramNode = curNode->children;
+    include = xmlGetProp(curNode,BAD_CAST TASK_XML_PARAM_INCLUDE);
+    if(NULL != include) {
+        /* load the param templet */
+        paramNode = ngx_media_task_load_params_templet(&templet_doc,(u_char*)include,worker);
+    }
+    else {
+        paramNode = curNode->children;
+    }
+
     while(NULL != paramNode) {
         if (xmlStrcmp(paramNode->name, BAD_CAST TASK_XML_PARAM)) {
             paramNode = paramNode->next;
@@ -1086,7 +1135,8 @@ ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_w
                         *last = '\0';
                         worker->paramlist[worker->nparamcount] = param;
                         worker->nparamcount++;
-                        ngx_media_task_push_args(task, (u_char*)name ,(u_char*)value);
+                        /* the param no need set be the argument */
+                        //ngx_media_task_push_args(worker, (u_char*)name ,(u_char*)value);
                     }
                     xmlFree(value);
                 }
@@ -1096,13 +1146,57 @@ ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_w
         paramNode = paramNode->next;
     }
 
+    if(NULL != templet_doc) {
+         xmlFreeDoc(templet_doc);
+    }
+
     ngx_log_error(NGX_LOG_INFO, task->log, 0,
                           "ngx http video task deal params end.");
     return ;
 }
 
+static void
+ngx_media_task_deal_arguments(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker)
+{
+    xmlNodePtr argNode    = NULL;
+    xmlChar*   name       = NULL;
+    xmlChar*   value      = NULL;
+    u_char*    param      = NULL;
+    u_char*    last       = NULL;
+
+    argNode = curNode->children;
+    while(NULL != argNode) {
+        if (xmlStrcmp(argNode->name, BAD_CAST TASK_XML_ARGUMENT)) {
+            argNode = argNode->next;
+            continue;
+        }
+        name = xmlGetProp(argNode,BAD_CAST COMMON_XML_NAME);
+        if(NULL != name) {
+            size_t lens = ngx_strlen(name);
+            if(0 < lens) {
+                value = xmlGetProp(argNode,BAD_CAST COMMON_XML_VALUE);
+                if(NULL != value) {
+                    lens  = ngx_strlen(value);
+                    if(0 < lens) {
+                        /* set be the argument */
+                        ngx_media_task_push_args(worker, (u_char*)name ,(u_char*)value);
+                    }
+                    xmlFree(value);
+                }
+            }
+            xmlFree(name);
+        }
+        argNode = argNode->next;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, task->log, 0,
+                          "ngx http video task deal params end.");
+    return ;
+}
+
+
 static ngx_str_t*
-ngx_media_task_deal_find_variable_param(ngx_media_task_t* task,u_char* name)
+ngx_media_task_deal_find_variable_param(ngx_media_worker_ctx_t* worker,u_char* name)
 {
     ngx_keyval_t                  *kv      = NULL;
     ngx_keyval_t                  *array   = NULL;
@@ -1113,7 +1207,7 @@ ngx_media_task_deal_find_variable_param(ngx_media_task_t* task,u_char* name)
 
     size = ngx_strlen(name);
 
-    part  = &(task->arglist->part);
+    part  = &(worker->arglist->part);
     while (part)
     {
         array = (ngx_keyval_t*)(part->elts);
@@ -1140,11 +1234,9 @@ ngx_media_task_deal_find_variable_param(ngx_media_task_t* task,u_char* name)
 
     return NULL;
 }
-
-static void
-ngx_media_task_deal_worker_vari_params(ngx_media_task_t* task,ngx_media_worker_ctx_t* worker)
+static u_char*
+ngx_media_task_deal_replace_variable_param(ngx_media_worker_ctx_t* worker,u_char* param)
 {
-    ngx_int_t      i     = 0;
     ngx_str_t     *arg   = NULL;
     u_char        *value = NULL;
     u_char        *vari  = NULL;
@@ -1155,86 +1247,107 @@ ngx_media_task_deal_worker_vari_params(ngx_media_task_t* task,ngx_media_worker_c
 
     ngx_memzero(&str,TRANS_STRING_MAX_LEN);
 
+    value = param;
+
+    strLen = ngx_strlen(value);
+    vari = (u_char *)ngx_strstr(value, "$(");
+    if(NULL == vari) {
+        vari = (u_char *)ngx_strstr(value, "${");
+    }
+    while (NULL != vari) {
+        end = (u_char*)ngx_strchr(value,')');
+        if (NULL == end) {
+            end = (u_char*)ngx_strchr(value,'}');
+            if(NULL == end) {
+                ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "can't find the arg end tag')' or'}',the arg str:[%s]",vari);
+                break;
+            }
+        }
+
+        ngx_uint_t size = end - vari - 2;
+
+        if(0 == size) {
+            ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "the arg lens is zore,value:[%s]",value);
+            break;
+        }
+
+
+        last  = ngx_copy(str,(vari+2),size);
+        *last = '\0';
+
+        ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "find arg:[%s] to covert the real value",str);
+
+        arg = ngx_media_task_deal_find_variable_param(worker,&str[0]);
+
+        if(NULL == arg) {
+            ngx_log_error(NGX_LOG_WARN, worker->log,0, " can't covert arg:[%s] to  the real value",str);
+            break;
+        }
+
+        ngx_uint_t len = arg->len + strLen;
+        u_char* data = ngx_pcalloc(worker->pool,len);
+
+        if(NULL == data) {
+            ngx_log_error(NGX_LOG_WARN, worker->log,0, "allocate memory for real arg fail.");
+            break;
+        }
+
+        ngx_uint_t preLen = vari - value;
+        ngx_uint_t sufLen = strLen - (end - value +1);
+        u_char* buf = data;
+
+        if(0 < preLen ) {
+            last  = ngx_snprintf(buf,preLen,"%s",value);
+            *last = '\0';
+            buf += preLen;
+            ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "add the prefix:[%s],value:[%s]",value,data);
+        }
+
+        strLen = ngx_strlen(arg->data);
+        last  = ngx_snprintf(buf,strLen,"%V",arg);
+        *last = '\0';
+        buf += strLen;
+
+        ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "add the real value:[%V],value:[%s]",arg,data);
+        if(0 < sufLen ) {
+            u_char* pEnd = end+1;
+            last  = ngx_snprintf(buf,sufLen,"%s",pEnd);
+            *last = '\0';
+            buf += sufLen;
+            ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "add the suffix:[%s],value:[%s]",pEnd,data);
+        }
+        *buf ='\0';
+
+        /*
+        ngx_log_error(NGX_LOG_DEBUG, task->log,0, "prefix length:[%d] value length:[%d] suffix length:[%d].",
+                                                  preLen,strLen,sufLen);
+        */
+        ngx_log_error(NGX_LOG_DEBUG, worker->log,0, "replace the param:[%s] to new value:[%s]",value,data);
+
+        value = data;
+        strLen = ngx_strlen(value);
+        vari = (u_char *)ngx_strstr(value, "$(");
+        if(NULL == vari) {
+            vari = (u_char *)ngx_strstr(value, "${");
+        }
+    }
+
+    return value;
+}
+
+
+static void
+ngx_media_task_deal_worker_vari_params(ngx_media_task_t* task,ngx_media_worker_ctx_t* worker)
+{
+    ngx_int_t      i     = 0;
+    u_char        *value = NULL;
     for(i = 0 ; i < worker->nparamcount; i++) {
         value = worker->paramlist[i];
 
         if('-' == value[0]) {
             continue;
         }
-        strLen = ngx_strlen(value);
-        vari = (u_char *)ngx_strstr(value, "$(");
-        while (NULL != vari) {
-            end = (u_char*)ngx_strchr(value,')');
-            if (NULL == end) {
-                ngx_log_error(NGX_LOG_DEBUG, task->log,0, "can't find the arg end tag')',the arg str:[%s]",vari);
-                break;
-            }
-
-            ngx_uint_t size = end - vari - 2;
-
-            if(0 == size) {
-                ngx_log_error(NGX_LOG_DEBUG, task->log,0, "the arg lens is zore,value:[%s]",value);
-                break;
-            }
-
-
-           last  = ngx_copy(str,(vari+2),size);
-           *last = '\0';
-
-           ngx_log_error(NGX_LOG_DEBUG, task->log,0, "find arg:[%s] to covert the real value",str);
-
-            arg = ngx_media_task_deal_find_variable_param(task,&str[0]);
-
-            if(NULL == arg) {
-                ngx_log_error(NGX_LOG_WARN, task->log,0, " can't covert arg:[%s] to  the real value",str);
-                break;
-            }
-
-            ngx_uint_t len = arg->len + strLen;
-            u_char* data = ngx_pcalloc(task->pool,len);
-
-            if(NULL == data) {
-                ngx_log_error(NGX_LOG_WARN, task->log,0, "allocate memory for real arg fail.");
-                break;
-            }
-
-            ngx_uint_t preLen = vari - value;
-            ngx_uint_t sufLen = strLen - (end - value +1);
-            u_char* buf = data;
-
-            if(0 < preLen ) {
-                last  = ngx_snprintf(buf,preLen,"%s",value);
-                *last = '\0';
-                buf += preLen;
-                ngx_log_error(NGX_LOG_DEBUG, task->log,0, "add the prefix:[%s],value:[%s]",value,data);
-            }
-
-            strLen = ngx_strlen(arg->data);
-            last  = ngx_snprintf(buf,strLen,"%V",arg);
-            *last = '\0';
-            buf += strLen;
-
-            ngx_log_error(NGX_LOG_DEBUG, task->log,0, "add the real value:[%V],value:[%s]",arg,data);
-            if(0 < sufLen ) {
-                u_char* pEnd = end+1;
-                last  = ngx_snprintf(buf,sufLen,"%s",pEnd);
-                *last = '\0';
-                buf += sufLen;
-                ngx_log_error(NGX_LOG_DEBUG, task->log,0, "add the suffix:[%s],value:[%s]",pEnd,data);
-            }
-            *buf ='\0';
-
-            /*
-            ngx_log_error(NGX_LOG_DEBUG, task->log,0, "prefix length:[%d] value length:[%d] suffix length:[%d].",
-                                                      preLen,strLen,sufLen);
-            */
-            ngx_log_error(NGX_LOG_DEBUG, task->log,0, "replace the param:[%s] to new value:[%s]",worker->paramlist[i],data);
-            worker->paramlist[i] = data;
-
-            value = worker->paramlist[i];
-            strLen = ngx_strlen(value);
-            vari = (u_char *)ngx_strstr(value, "$(");
-        }
+        worker->paramlist[i] = ngx_media_task_deal_replace_variable_param(worker,value);
     }
 }
 
@@ -1243,7 +1356,7 @@ ngx_media_task_deal_task_vari_params(ngx_media_task_t* task)
 {
     ngx_media_worker_ctx_t   *worker = NULL;
     ngx_media_worker_ctx_t   *array  = NULL;
-    ngx_list_part_t               *part   = NULL;
+    ngx_list_part_t          *part   = NULL;
 
     part  = &(task->workers->part);
     while (part)
@@ -1435,7 +1548,7 @@ ngx_media_task_error_xml(ngx_http_request_t *r,ngx_chain_t* out,
 }
 
 static ngx_int_t
-ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
+ngx_media_task_deal_workers(ngx_media_main_conf_t *conf,xmlNodePtr curNode,ngx_media_task_t* task)
 {
     xmlNodePtr                   paramSNode = NULL;
     xmlNodePtr                   workerNode = NULL;
@@ -1462,6 +1575,14 @@ ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
         pWorker->resolver_timeout  = task->resolver_timeout;
         pWorker->taskid.data       = task->task_id.data;
         pWorker->taskid.len        = task->task_id.len;
+        pWorker->arglist           = ngx_list_create(task->pool,TASK_ARGS_MAX,sizeof(ngx_keyval_t));
+
+        if((NULL != task->task_id.data) && (0 < task->task_id.len)) {
+            ngx_media_task_push_args(pWorker,(u_char*)"taskid",task->task_id.data);
+        }
+
+
+        ngx_media_task_copy_global_args(conf,pWorker);
 
         ngx_str_null(&pWorker->wokerid);
         pWorker->type   = ngx_media_worker_invalid;
@@ -1506,7 +1627,11 @@ ngx_media_task_deal_workers(xmlNodePtr curNode,ngx_media_task_t* task)
         }
         paramSNode = workerNode->children;
         while(NULL != paramSNode) {
-           if(!xmlStrcmp(paramSNode->name, BAD_CAST TASK_XML_PARAMS)) {
+           if(!xmlStrcmp(paramSNode->name, BAD_CAST TASK_XML_ARGUMENTS)) {
+               /* deal the common arguments */
+               ngx_media_task_deal_arguments(paramSNode,task,pWorker);
+           }
+           else if(!xmlStrcmp(paramSNode->name, BAD_CAST TASK_XML_PARAMS)) {
                /* deal the common params */
                ngx_media_task_deal_params(paramSNode,task,pWorker);
            }
@@ -1594,8 +1719,6 @@ ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc)
         *last = '\0';
     }
 
-    ngx_media_task_push_args(task,(u_char*)"taskid",attr_value);
-
     curNode = curNode->children;
 
     while(curNode != NULL)
@@ -1617,7 +1740,7 @@ ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc)
        }
        else if (!xmlStrcmp(curNode->name, BAD_CAST "workers"))
        {
-           if(NGX_OK != ngx_media_task_deal_workers(curNode,task)) {
+           if(NGX_OK != ngx_media_task_deal_workers(conf,curNode,task)) {
                 bStart = 0;
                 goto error_start;
            }

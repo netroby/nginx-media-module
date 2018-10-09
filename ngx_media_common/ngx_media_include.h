@@ -101,7 +101,12 @@
 
 #define TASK_XML_PARAMS         "params"
 #define TASK_XML_PARAM          "param"
-#define TASK_XML_PARAM_PATH     "path"
+#define TASK_XML_PARAM_INCLUDE  "include"
+
+#define TASK_XML_ARGUMENTS      "arguments"
+#define TASK_XML_ARGUMENT       "argument"
+
+
 
 #define TASK_XML_TRIGGERS       "triggers"
 #define TASK_XML_TRIGGER        "trigger"
@@ -195,7 +200,6 @@ struct ngx_media_task_s {
     ngx_str_t                       rep_url;
     ngx_url_t                       url;
     ngx_str_t                       xml;
-    ngx_list_t                     *arglist;
 
     ngx_pool_t                     *pool;
     ngx_log_t                      *log;
