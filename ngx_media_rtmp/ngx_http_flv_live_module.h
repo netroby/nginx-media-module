@@ -44,6 +44,11 @@ typedef struct ngx_http_flv_live_ctx_s {
 typedef struct ngx_http_flv_live_conf_s {
     ngx_flag_t    flv_live;
     ngx_msec_t    poll_interval;
+    /* begin add by H.Kernel for default rtmp APP stream */
+    ngx_str_t     default_port;
+    ngx_str_t     default_app;
+    ngx_str_t     default_stream;
+    /* end add by H.Kernel for default rtmp APP stream */
 } ngx_http_flv_live_conf_t;
 
 

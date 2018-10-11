@@ -235,6 +235,29 @@ static ngx_command_t ngx_http_flv_live_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_flv_live_conf_t, poll_interval),
       NULL },
+    /* begin add by H.Kernel for default rtmp APP stream */
+    { ngx_string("flv_rtmp_port"),
+      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_flv_live_conf_t, default_port),
+      NULL },
+
+    { ngx_string("flv_rtmp_app"),
+      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_flv_live_conf_t, default_app),
+      NULL },
+
+    { ngx_string("flv_rtmp_stream"),
+      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_flv_live_conf_t, default_stream),
+      NULL },
+
+    /* end add by H.Kernel for default rtmp APP stream */
 
     ngx_null_command
 };
@@ -513,7 +536,7 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
 
 
 /**
- * for adding non-standard HTTP headers 
+ * for adding non-standard HTTP headers
  **/
 ngx_int_t
 ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
@@ -1151,12 +1174,12 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
                 break;
             }
 
-            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, 
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                           "flv live: no on_play, check relay pulls");
 
             /* check if there are some pulls */
             if (!create) {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0, 
+                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                               "flv live: no on_play or relay pull, quit");
 
                 return NGX_ERROR;
@@ -1215,12 +1238,12 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     r->main->count++;
 
 #if (nginx_version >= 1013001)
-        /** 
-         * when playing from pull, the downstream requests on the most 
-         * of time return before the upstream requests, flv.js always 
-         * sends HTTP header 'Connection: keep-alive', but Nginx has 
-         * deleted r->blocked in ngx_http_finalize_request, that causes 
-         * ngx_http_set_keepalive to run the cleanup handlers to close 
+        /**
+         * when playing from pull, the downstream requests on the most
+         * of time return before the upstream requests, flv.js always
+         * sends HTTP header 'Connection: keep-alive', but Nginx has
+         * deleted r->blocked in ngx_http_finalize_request, that causes
+         * ngx_http_set_keepalive to run the cleanup handlers to close
          * the connection between downstream and server, so play fails
          **/
         r->keepalive = 0;
@@ -1363,9 +1386,9 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         }
     }
 
-    /** 
-     * close only http requests here, the other 
-     * requests were left for next_clost_stream 
+    /**
+     * close only http requests here, the other
+     * requests were left for next_clost_stream
      **/
 
 next:
@@ -1638,23 +1661,39 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
     ngx_uint_t                   i, n;
     ngx_flag_t                   port_match, addr_match;
     unsigned short               sa_family;
+    /* begin add by H.Kernel for default rtmp APP stream */
+    ngx_http_flv_live_conf_t    *hfcf;
 
+    hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
+     /* end add by H.Kernel for default rtmp APP stream */
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
 
-    /** 
-     * if requested args are escaped, for example, urls in the 
-     * history list of vlc for Android (or all mobile platforms) 
+    /**
+     * if requested args are escaped, for example, urls in the
+     * history list of vlc for Android (or all mobile platforms)
      **/
     if (r->args.len == 0 && r->uri.len) {
         ngx_http_split_args(r, &r->uri, &r->args);
     }
 
     if (ngx_http_arg(r, arg_port.data, arg_port.len, &port) != NGX_OK) {
-        /* no port in args */
-        port.data = (u_char *) "1935";
-        port.len = ngx_strlen("1935");
+        /* begin add by H.Kernel for default rtmp APP stream */
+        if((NULL != hfcf->default_port.data)&&(0 < hfcf->default_port.len)) {
+            port.data = hfcf->default_port.data;
+            port.len  = hfcf->default_port.len;
+            in_port   = ngx_atoi(hfcf->default_port.data, hfcf->default_port.len);
+            if (in_port == NGX_ERROR || (in_port < 0 || in_port > 65535)) {
+                return NGX_ERROR;
+            }
+        }
+        else {
+            /* no port in args */
+            port.data = (u_char *) "1935";
+            port.len = ngx_strlen("1935");
 
-        in_port = 1935;
+            in_port = 1935;
+        }
+         /* end add by H.Kernel for default rtmp APP stream */
     } else {
         in_port = ngx_atoi(port.data, port.len);
         if (in_port == NGX_ERROR || (in_port < 0 || in_port > 65535)) {
@@ -1793,17 +1832,27 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
     }
 
     if (ngx_http_arg(r, arg_app.data, arg_app.len, &app) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        /* begin add by H.Kernel for default rtmp APP stream */
+        if((NULL == hfcf->default_app.data)||(0 == hfcf->default_app.len)) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                       "flv live: app args MUST be specified");
 
-        return NGX_ERROR;
+            return NGX_ERROR;
+        }
+        ctx->app = hfcf->default_app;
+        /* end add by H.Kernel for default rtmp APP stream */
     } else {
         ctx->app = app;
     }
 
     if (ngx_http_arg(r, arg_stream.data, arg_stream.len, &stream) != NGX_OK) {
-        ctx->stream.data = (u_char *) "";
-        ctx->stream.len = 0;
+         /* begin add by H.Kernel for default rtmp APP stream */
+        if((NULL == hfcf->default_stream.data)||(0 == hfcf->default_stream.len)) {
+            ctx->stream.data = (u_char *) "";
+            ctx->stream.len = 0;
+        }
+        ctx->stream = hfcf->default_stream;
+        /* end add by H.Kernel for default rtmp APP stream */
     } else {
         ctx->stream = stream;
     }
