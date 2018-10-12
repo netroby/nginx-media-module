@@ -20,6 +20,7 @@
 #include <ngx_log.h>
 #include <ngx_http.h>
 #include <ngx_files.h>
+#include <ngx_file.h>
 #include <ngx_thread.h>
 #include <ngx_thread_pool.h>
 #include "ngx_media_task_module.h"
@@ -87,14 +88,14 @@ static void*     ngx_media_task_create_main_conf(ngx_conf_t *cf);
 /*************************video task request *****************************/
 static void      ngx_media_task_recv_request(ngx_http_request_t *r);
 static void      ngx_media_task_deal_xml_req(ngx_http_request_t *r,const char* req_xml,ngx_chain_t* out);
-static void      ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
-static void      ngx_media_task_deal_arguments(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
+static ngx_int_t ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
+static ngx_int_t ngx_media_task_deal_arguments(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
 static ngx_str_t*ngx_media_task_deal_find_variable_param(ngx_media_worker_ctx_t* worker,u_char* name);
 static u_char*   ngx_media_task_deal_replace_variable_param(ngx_media_worker_ctx_t* worker,u_char* param);
 static void      ngx_media_task_deal_worker_vari_params(ngx_media_task_t* task,ngx_media_worker_ctx_t* worker);
 static void      ngx_media_task_deal_task_vari_params(ngx_media_task_t* task);
 static ngx_int_t ngx_media_task_deal_init_workers(ngx_media_task_t* task);
-static void      ngx_media_task_deal_triggers(xmlNodePtr curNode,ngx_str_t* taskid,ngx_media_worker_ctx_t* worker);
+static ngx_int_t ngx_media_task_deal_triggers(xmlNodePtr curNode,ngx_str_t* taskid,ngx_media_worker_ctx_t* worker);
 static ngx_int_t ngx_media_task_deal_workers(ngx_media_main_conf_t *conf,xmlNodePtr curNode,ngx_media_task_t* task);
 static void      ngx_media_task_destory_workers(ngx_media_task_t* task);
 static int       ngx_media_task_start_task(ngx_media_main_conf_t *conf,xmlDocPtr doc);
@@ -386,6 +387,17 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
     }
 
     ngx_log_error(NGX_LOG_INFO, cycle->log, 0, "ngx_media_task_module,the process:[%d] is 0,so start static timer.",ngx_process_slot);
+
+    if(NULL == mainconf->static_task.data|| 0 == mainconf->static_task.len) {
+        ngx_log_error(NGX_LOG_DEBUG, cycle->log, 0, "not configuer the static work path.");
+        return NGX_OK;
+    }
+
+    if( ngx_get_full_name(cycle->pool,&cycle->prefix,&mainconf->static_task)) {
+        ngx_log_error(NGX_LOG_WARN, cycle->log, 0,
+                          "ngx media task static task get:[%V] full path fail.",&mainconf->static_task);
+        return NGX_OK;
+    }
 
     ngx_media_task_static_init_timer(mainconf);
 
@@ -1057,16 +1069,29 @@ ngx_media_task_load_params_templet(xmlDocPtr* doc,u_char* include,ngx_media_work
     xmlDocPtr      templet_doc = NULL;
     xmlNodePtr     curNode     = NULL;
     u_char        *templet     = NULL;
+    ngx_str_t      full_name;
+
+    ngx_log_error(NGX_LOG_DEBUG, worker->log, 0,
+                          "ngx media task load the templet,include:[%s]fail.",include);
 
     templet = ngx_media_task_deal_replace_variable_param(worker,include);
 
+    full_name.data = templet;
+    full_name.len  = ngx_strlen(templet) + 1;
+
+    if( ngx_get_full_name(worker->pool,(ngx_str_t *) &ngx_cycle->prefix,&full_name)) {
+        ngx_log_error(NGX_LOG_ERR, worker->log, 0,
+                          "ngx media task deal the templet xml file:[%s] get full path fail.",templet);
+        return NULL;
+    }
+
     /* load the templet xml */
     xmlKeepBlanksDefault(0);
-    templet_doc = xmlParseFile((char*)templet);
+    templet_doc = xmlParseFile((char*)full_name.data);
     if(NULL == templet_doc)
     {
         ngx_log_error(NGX_LOG_ERR, worker->log, 0,
-                          "ngx media task deal the templet xml fail.");
+                          "ngx media task deal the templet xml file:[%s]fail.",templet);
         return NULL;
     }
 
@@ -1087,11 +1112,11 @@ ngx_media_task_load_params_templet(xmlDocPtr* doc,u_char* include,ngx_media_work
         return NULL;
     }
     *doc = templet_doc;
-    return curNode;
+    return curNode->children;
 
 }
 
-static void
+static ngx_int_t
 ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker)
 {
     xmlNodePtr paramNode   = NULL;
@@ -1109,6 +1134,10 @@ ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_w
     }
     else {
         paramNode = curNode->children;
+    }
+
+    if(NULL == paramNode) {
+        return NGX_ERROR;
     }
 
     while(NULL != paramNode) {
@@ -1152,10 +1181,10 @@ ngx_media_task_deal_params(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_w
 
     ngx_log_error(NGX_LOG_INFO, task->log, 0,
                           "ngx http video task deal params end.");
-    return ;
+    return NGX_OK;
 }
 
-static void
+static ngx_int_t
 ngx_media_task_deal_arguments(xmlNodePtr curNode,ngx_media_task_t* task,ngx_media_worker_ctx_t* worker)
 {
     xmlNodePtr argNode    = NULL;
@@ -1188,8 +1217,8 @@ ngx_media_task_deal_arguments(xmlNodePtr curNode,ngx_media_task_t* task,ngx_medi
     }
 
     ngx_log_error(NGX_LOG_INFO, task->log, 0,
-                          "ngx http video task deal params end.");
-    return ;
+                          "ngx http video task deal arguments end.");
+    return NGX_OK;
 }
 
 
@@ -1401,7 +1430,7 @@ ngx_media_task_deal_init_workers(ngx_media_task_t* task)
 }
 
 
-static void
+static ngx_int_t
 ngx_media_task_deal_triggers(xmlNodePtr curNode,ngx_str_t* taskid,ngx_media_worker_ctx_t* worker)
 {
     xmlNodePtr                   triggerNode = NULL;
@@ -1435,7 +1464,7 @@ ngx_media_task_deal_triggers(xmlNodePtr curNode,ngx_str_t* taskid,ngx_media_work
         xmlFree(attr_value);
 
         if(NULL == trigger) {
-            return;
+            return NGX_ERROR;
         }
 
         ngx_str_null(&trigger->wokerid);
@@ -1467,7 +1496,7 @@ ngx_media_task_deal_triggers(xmlNodePtr curNode,ngx_str_t* taskid,ngx_media_work
 
     ngx_log_error(NGX_LOG_DEBUG, worker->log, 0,
                           "ngx http video task deal triggers end.");
-    return ;
+    return NGX_OK;
 }
 
 static void
@@ -1553,6 +1582,7 @@ ngx_media_task_deal_workers(ngx_media_main_conf_t *conf,xmlNodePtr curNode,ngx_m
     xmlChar*                     attr_value = NULL;
     ngx_media_worker_ctx_t      *pWorker    = NULL;
     u_char                      *last       = NULL;
+    ngx_int_t                    ret        = NGX_OK;
 
     workerNode  = curNode->children;
     while(NULL != workerNode) {
@@ -1627,17 +1657,21 @@ ngx_media_task_deal_workers(ngx_media_main_conf_t *conf,xmlNodePtr curNode,ngx_m
         while(NULL != paramSNode) {
            if(!xmlStrcmp(paramSNode->name, BAD_CAST TASK_XML_ARGUMENTS)) {
                /* deal the common arguments */
-               ngx_media_task_deal_arguments(paramSNode,task,pWorker);
+               ret = ngx_media_task_deal_arguments(paramSNode,task,pWorker);
            }
            else if(!xmlStrcmp(paramSNode->name, BAD_CAST TASK_XML_PARAMS)) {
                /* deal the common params */
-               ngx_media_task_deal_params(paramSNode,task,pWorker);
+               ret = ngx_media_task_deal_params(paramSNode,task,pWorker);
            }
            else if(!xmlStrcmp(paramSNode->name, BAD_CAST TASK_XML_TRIGGERS)) {
                /* deal the trigger params */
-               ngx_media_task_deal_triggers(paramSNode,&task->task_id,pWorker);
+               ret = ngx_media_task_deal_triggers(paramSNode,&task->task_id,pWorker);
            }
            /* unknow the params type */
+
+           if(NGX_OK != ret) {
+               return NGX_ERROR;
+           }
            paramSNode = paramSNode->next;
         }
         workerNode = workerNode->next;

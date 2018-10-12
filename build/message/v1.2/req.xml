@@ -42,7 +42,7 @@
           <argument name="mss_password"   value="heshijie"/>
           <argument name="dst"            value="rtmp://127.0.0.1:1935/live/ryb_live_386830678378622612"/>
         </arguments>
-        <params include="templet/trans_live.xml" />
+        <params include="${params_default}" />
       </worker>
     </workers>
   </task>
