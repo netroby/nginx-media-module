@@ -33,7 +33,6 @@ enum ngx_http_worker {
     ngx_media_worker_mediakernel     = 0,
     ngx_media_worker_tranfer         = 1,
     ngx_media_worker_mss             = 2,
-    ngx_media_worker_access          = 3,
     ngx_media_worker_invalid
 };
 
