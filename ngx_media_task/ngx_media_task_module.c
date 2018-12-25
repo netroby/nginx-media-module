@@ -29,8 +29,8 @@
 #include "ngx_media_worker.h"
 #include "libMediaKenerl.h"
 #include "mk_def.h"
-#include "libASRtsp2RtmpClient.h"
-#include "as_def.h"
+//#include "libASRtsp2RtmpClient.h"
+//#include "as_def.h"
 
 
 
@@ -381,10 +381,10 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
     }
 
     /* init the rtsp2rtmp access libary */
-    ret = as_rtsp2rtmp_init();
-    if(0 != ret) {
-        return NGX_ERROR;
-    }
+    //ret = as_rtsp2rtmp_init();
+    //if(0 != ret) {
+    //    return NGX_ERROR;
+    //}
 
     /*init the all worker */
     ngx_media_register_all_worker();
@@ -416,7 +416,7 @@ ngx_media_task_init_process(ngx_cycle_t *cycle)
 static void
 ngx_media_task_exit_process(ngx_cycle_t *cycle)
 {
-    as_rtsp2rtmp_release();
+    //as_rtsp2rtmp_release();
     return ;
 }
 
