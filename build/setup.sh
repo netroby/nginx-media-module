@@ -712,6 +712,8 @@ rebuild_allmedia_module()
     chmod +x ${PREFIX_ROOT}/sbin/restart
     chmod +x ${PREFIX_ROOT}/sbin/stop
     cp ${SCRIPT_ROOT}/allmedia.conf ${PREFIX_ROOT}/conf
+    cp ${CURRENT_PATH}/music ${PREFIX_ROOT}/
+    cp ${CURRENT_PATH}/templet ${PREFIX_ROOT}/conf/
     echo "make the allmedia success!\n"
     cd ${ALLMEDIA_ROOT}
     return 0
