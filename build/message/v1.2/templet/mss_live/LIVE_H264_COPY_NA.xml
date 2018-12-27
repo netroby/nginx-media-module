@@ -8,5 +8,6 @@
   <param name="mss_password"   value="$(mss_password)"/>
   <param name="vcodec"         value="copy"/>
   <param name="an" />
+  <param name="f"              value="flv"/>
   <param name="dst"            value="${dst}"/>
 </params>
