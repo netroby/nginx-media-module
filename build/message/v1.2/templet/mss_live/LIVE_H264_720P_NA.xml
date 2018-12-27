@@ -14,7 +14,7 @@
   <param name="g"              value="60"/>
   <param name="sc_threshold"   value="0"/>
   <param name="s"              value="1280x720"/>
-  <param name="f"              value="25"/>  
+  <param name="r"              value="25"/>  
   <param name="maxrate"        value="1500k"/> 
   <param name="minrate"        value="1000k"/> 
   <param name="bf"             value="0"/> 

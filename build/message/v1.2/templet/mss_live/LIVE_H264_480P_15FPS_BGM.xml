@@ -18,12 +18,12 @@
   <param name="g"              value="60"/>
   <param name="sc_threshold"   value="0"/>
   <param name="s"              value="640x480"/>
-  <param name="f"              value="15"/>  
+  <param name="r"              value="15"/>  
   <param name="maxrate"        value="256k"/> 
   <param name="minrate"        value="128k"/> 
   <param name="bf"             value="0"/> 
   <param name="b_strategy"     value="0"/>
   <param name="acodec"         value="aac"/>
-  <param name="f"              value="flv"/>
+  <param name="r"              value="flv"/>
   <param name="dst"            value="${dst}"/>
 </params>
